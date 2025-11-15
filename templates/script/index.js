@@ -24,11 +24,21 @@ function renderCard(post) {
   const card = document.createElement('article');
   card.className = 'card glass breathe';
   const time = window.API.formatTime(window.API.parseTime(post.meta?.time||''));
-  const tags = post.meta?.tags || [];
-  const sourceBadge = tags.includes('微信') ? `<span class="tag tag-source">来自微信朋友圈</span>` : '';
+  let tags = post.meta?.tags || [];
+
+  // 如果有 "微信"，就移除它，只用显示 "来自微信朋友圈" 徽章
+  let sourceBadge = '';
+  if (tags.includes('微信')) {
+    sourceBadge = `<span class="tag tag-source">来自微信朋友圈</span>`;
+    tags = tags.filter(t => t !== '微信');
+  }
+
+  // avatar 由 Flask 传入 window.avatar
+  const avatarSrc = window.avatar ? `/upload/${window.avatar}` : '/upload/default.png';
+
   card.innerHTML = `
     <div class="card-header">
-      <div class="avatar" aria-hidden="true"></div>
+      <div class="avatar"><img src="${avatarSrc}" alt="avatar" /></div>
       <div>
         <div class="meta">
           <span class="time">${time}</span>
@@ -38,12 +48,15 @@ function renderCard(post) {
     </div>
     <div class="content ellipsis-2">${escapeHtml(stripHtml(post.html||''))}</div>
   `;
+
   card.addEventListener('click', () => {
     const id = window.API.getIdFromFilename(post.filename||'');
-    location.href = `post.html?id=${encodeURIComponent(id)}`;
+    location.href = `post?id=${encodeURIComponent(id)}`;
   });
+
   return card;
 }
+
 
 function stripHtml(html) {
   const tmp = document.createElement('div');

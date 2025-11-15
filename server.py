@@ -180,7 +180,7 @@ def api_post_new():
     data = request.json or {}
     content = data.get("content", "")
     tags = data.get("tags", [])
-    time_str = data.get("time") or datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    time_str = data.get("time") or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     if not content:
         return jsonify({"error": "Content is required"}), 400
@@ -243,8 +243,25 @@ def serve_css(filename):
 def serve_script(filename):
     """提供 JS 静态文件"""
     return send_from_directory("templates/script/", filename)
-
+@app.route("/post")
+def post_page():
+    """动态页面"""
+    return render_template("post.html",
+                           nickname=nickname,
+                           avatar=avatar
+                           )    
+@app.route("/status")
+def status_page():
+    """状态页面"""
+    return render_template("status.html",
+                           nickname=nickname,
+                           avatar=avatar
+                           )
+@app.route("/upload/<path:filename>")
+def serve_uploads(filename):
+    """提供上传的静态文件"""
+    return send_from_directory("upload/", filename)
 if __name__ == "__main__":
-    app.run(host=HOST, port=PORT, debug='DEBUG')
+    app.run(host=HOST, port=PORT, debug=1)
 
 #启动备注:cmd.exe /K "C:\Ruibin_Ningh\app\Anaconda\Scripts\activate.bat" TongYong
