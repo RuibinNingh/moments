@@ -205,6 +205,6 @@ Content-Type: application/json
 
 ## 运行
 ```
-python -m http.server 8000
+python -m http.server 5000
 ```
 启动静态服务器
