@@ -154,3 +154,51 @@ background: "/upload/bg_20250120_1.png"
 }
 ```
 
+### 获取当前状态
+
+`GET /api/status/current`
+
+返回示例
+
+```
+{
+  "filename": "2025-11-15-1.md",
+  "meta": {
+    "time": "2025-11-15 10:00:00",
+    "name": "coding(自定义)",
+    "background": "/upload/bg_20251115_1.png"
+  },
+  "raw": "---\ntime: \"2025-11-15 10:00:00\"\nname: \"coding(自定义)\"\nbackground: \"/upload/bg_20251115_1.png\"\n---\n\n今天正在写动态系统，忙碌而充实！",
+  "html": "<p>今天正在写动态系统，忙碌而充实！</p>"
+}
+```
+
+### 发送动态
+
+```
+POST /api/post/new
+X-API-KEY: your-api-key
+Content-Type: application/json
+
+{
+    "content": "今天测试 API 新功能",
+    "tags": ["测试","API"],
+    "time": "2025-11-15 15:00:00"
+}
+```
+
+### 设置状态
+
+```
+POST /api/status/new
+X-API-KEY: your-api-key
+Content-Type: application/json
+
+{
+    "content": "正在开发 API 认证功能",
+    "name": "coding(自定义)",
+    "background": "/upload/bg_20251115_2.png",
+    "time": "2025-11-15 15:30:00"
+}
+```
+

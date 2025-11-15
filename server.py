@@ -3,6 +3,8 @@ import yaml
 from flask import Flask, request, jsonify, send_from_directory, render_template
 from markdown import markdown
 import yaml
+from functools import wraps
+from flask import request, jsonify
 from datetime import datetime
 app = Flask(__name__)
 
@@ -17,6 +19,16 @@ avatar = config.get("avatar", "")
 
 HOST = config["server"].get("host", "127.0.0.1")
 PORT = config["server"].get("port", 5000)
+
+def require_api_key(f):
+    """验证"""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get("X-API-KEY") or request.args.get("api_key")
+        if API_KEY and token != API_KEY:
+            return jsonify({"error": "Invalid API key"}), 401
+        return f(*args, **kwargs)
+    return decorated
 
 
 def load_post(filepath):
@@ -93,6 +105,135 @@ def get_single_post(post_id):
 
     post = load_post(filepath)
     return jsonify(post)
+
+def load_status(filepath):
+    """读取单条状态文件"""
+    with open(filepath, "r", encoding="utf-8") as f:
+        text = f.read()
+
+    if text.startswith("---"):
+        try:
+            _, fm, body = text.split("---", 2)
+            meta = yaml.safe_load(fm) or {}
+        except:
+            meta = {}
+            body = text
+    else:
+        meta = {}
+        body = text
+
+    html = markdown(body, extensions=["extra", "codehilite"])
+    return {
+        "filename": os.path.basename(filepath),
+        "meta": meta,
+        "raw": text,
+        "html": html
+    }
+
+def list_statuses():
+    """列出所有状态，按时间倒序"""
+    if not os.path.exists("status"):
+        return []
+
+    files = [os.path.join("status", f) for f in os.listdir("status") if f.endswith(".md")]
+
+    statuses = []
+    for fp in files:
+        s = load_status(fp)
+        # 尝试解析时间
+        t_str = s["meta"].get("time", "1970-01-01 00:00:00")
+        try:
+            s["_datetime"] = datetime.strptime(t_str, "%Y-%m-%d %H:%M:%S")
+        except:
+            s["_datetime"] = datetime(1970,1,1)
+        statuses.append(s)
+
+    statuses.sort(key=lambda x: x["_datetime"], reverse=True)
+
+    # 删除临时字段
+    for s in statuses:
+        s.pop("_datetime", None)
+
+    return statuses
+
+@app.route("/api/status/current")
+def api_status_current():
+    """获取最新状态"""
+    statuses = list_statuses()
+    if not statuses:
+        return jsonify({"error": "No status found"}), 404
+    return jsonify(statuses[0])
+
+@app.route("/api/status/history")
+def api_status_history():
+    """获取历史状态列表"""
+    statuses = list_statuses()
+    return jsonify({
+        "count": len(statuses),
+        "statuses": statuses
+    })
+
+@app.route("/api/post/new", methods=["POST"])
+@require_api_key
+def api_post_new():
+    """创建新动态"""
+    data = request.json or {}
+    content = data.get("content", "")
+    tags = data.get("tags", [])
+    time_str = data.get("time") or datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    if not content:
+        return jsonify({"error": "Content is required"}), 400
+
+    # 生成文件名，例如: 2025-11-15-3.md
+    date_part = time_str.split(" ")[0].replace("-", "")
+    existing = [f for f in os.listdir("posts") if f.startswith(date_part)]
+    idx = len(existing) + 1
+    filename = f"{date_part}-{idx}.md"
+    filepath = os.path.join("posts", filename)
+
+    # 写入文件
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write("---\n")
+        f.write(f'time: "{time_str}"\n')
+        f.write(f'tags: {tags}\n')
+        f.write("---\n\n")
+        f.write(content)
+
+    # 返回创建的动态
+    post = load_post(filepath)
+    return jsonify(post), 201
+
+@app.route("/api/status/new", methods=["POST"])
+@require_api_key
+def api_status_new():
+    """创建新状态"""
+    data = request.json or {}
+    content = data.get("content", "")
+    name = data.get("name", "")
+    background = data.get("background", "")
+    time_str = data.get("time") or datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    if not content:
+        return jsonify({"error": "Content is required"}), 400
+
+    # 生成文件名，例如: 20251115-1.md
+    date_part = time_str.split(" ")[0].replace("-", "")
+    existing = [f for f in os.listdir("status") if f.startswith(date_part)]
+    idx = len(existing) + 1
+    filename = f"{date_part}-{idx}.md"
+    filepath = os.path.join("status", filename)
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write("---\n")
+        f.write(f'time: "{time_str}"\n')
+        f.write(f'name: "{name}"\n')
+        f.write(f'background: "{background}"\n')
+        f.write("---\n\n")
+        f.write(content)
+
+    status = load_status(filepath)
+    return jsonify(status), 201
 
 if __name__ == "__main__":
     app.run(host=HOST, port=PORT, debug='DEBUG')
