@@ -235,5 +235,16 @@ def api_status_new():
     status = load_status(filepath)
     return jsonify(status), 201
 
+@app.route("/css/<path:filename>")
+def serve_css(filename):
+    """提供 CSS 静态文件"""
+    return send_from_directory("templates/css/", filename)
+@app.route("/script/<path:filename>")
+def serve_script(filename):
+    """提供 JS 静态文件"""
+    return send_from_directory("templates/script/", filename)
+
 if __name__ == "__main__":
     app.run(host=HOST, port=PORT, debug='DEBUG')
+
+#启动备注:cmd.exe /K "C:\Ruibin_Ningh\app\Anaconda\Scripts\activate.bat" TongYong
