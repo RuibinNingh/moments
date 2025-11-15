@@ -4,14 +4,14 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>瞬间 · 动态详情</title>
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
 </head>
 <body class="page page-post">
   <header class="glass nav breathe container">
     <div class="title">动态详情</div>
     <nav style="margin-left:auto; display:flex; gap:8px;">
-      <a href="index.html">返回列表</a>
-      <a href="status.html">状态</a>
+      <a href="{{ url_for('index') }}">返回列表</a>
+      <a href="{{ url_for('status_page') }}">状态</a>
     </nav>
   </header>
 
@@ -23,7 +23,7 @@
     </article>
   </main>
 
-  <script src="script/api.js"></script>
-  <script src="script/post.js"></script>
+  <script src="{{ url_for('static', filename='script/api.js') }}"></script>
+  <script src="{{ url_for('static', filename='script/post.js') }}"></script>
   </body>
  </html>
