@@ -15,7 +15,7 @@
 │
 ├── server.py                     # 服务端（Flask）
 │
-├── config.json                   # 配置文件  
+├── config.yaml                   # 配置文件  
 │
 ├── templates/                    # 网页文件目录
 │     ├── index.html              # 动态展示页面
@@ -45,17 +45,17 @@
 ### 配置文件
 
 ```
-{
-  "server": {
-    "host": "127.0.0.1",   // 服务器地址
-    "port": 5000           // 服务器端口
-  },
-  "nickname": "Ruibin_Ningh", //你的昵称
-  "avatar": "avatar.png", //upload目录下的文件名
-  "api_key": "your-api-key-here",   // 你可以设置一个 API Key 来保护你的接口,留空则无
-  "view_time_limit_days": 7    // 设置访问时间限制,超过这个天数不他人不可见
-  "comment": false  //是否开启评论功能(未实现)
-}
+server:
+  host: 127.0.0.1   # 服务器地址
+  port: 5000        # 端口
+
+nickname: Ruibin_Ningh   # 昵称
+avatar: avatar.png        # 头像文件名
+
+api_key: your-api-key-here   # API Key
+view_time_limit_days: 7      # 可见天数
+comment: false               # 是否开启评论
+
 ```
 
 ### 动态
@@ -133,6 +133,24 @@ background: "/upload/bg_20250120_1.png"
       "filename": "2025-01-20-1.md"
     }//第二个动态
   ]
+}
+```
+
+### 获取单个动态详情
+
+`GET /api/post/<post_id>`
+
+(例如`/api/post/2025-01-20-1`)
+
+```
+{
+  "meta": {
+    "time": "2025-01-20 10:00:00",
+    "tags": ["微信"]
+  },
+  "html": "<p>今天继续开发动态系统，优化了状态管理模块。</p>",
+  "raw": "---\ntime: \"2025-01-20 10:00:00\"\ntags: [\"微信\"]\n---\n今天继续开发动态系统，优化了状态管理模块。",
+  "filename": "2025-01-20-1.md"
 }
 ```
 
