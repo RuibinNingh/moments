@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>瞬间 · 动态详情</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="page page-post">
+  <header class="glass nav breathe container">
+    <div class="title">动态详情</div>
+    <nav style="margin-left:auto; display:flex; gap:8px;">
+      <a href="index.html">返回列表</a>
+      <a href="status.html">状态</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <article class="article glass breathe">
+      <div class="time" id="postTime">加载中...</div>
+      <div class="tags" id="postTags"></div>
+      <div class="body" id="postBody"></div>
+    </article>
+  </main>
+
+  <script src="script/api.js"></script>
+  <script src="script/post.js"></script>
+  </body>
+ </html>
