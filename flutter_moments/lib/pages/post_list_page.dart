@@ -4,6 +4,8 @@ import 'post_detail_page.dart';
 import 'send_post_page.dart';
 import 'status_list_page.dart';
 import 'status_page.dart';
+import 'config_page.dart';
+import 'file_manager_page.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -99,6 +101,30 @@ class _PostListPageState extends State<PostListPage> {
               );
             },
             tooltip: '状态历史',
+          ),
+          IconButton(
+            icon: Icon(Icons.folder),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => FileManagerPage(widget.api)),
+              );
+            },
+            tooltip: '文件管理',
+          ),
+          IconButton(
+            icon: Icon(Icons.settings),
+            onPressed: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => ConfigPage()),
+              );
+              if (result == true) {
+                // 配置已更新，重新加载数据
+                _loadData();
+              }
+            },
+            tooltip: '设置',
           ),
           IconButton(
             icon: Icon(Icons.refresh),

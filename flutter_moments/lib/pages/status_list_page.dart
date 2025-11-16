@@ -102,6 +102,7 @@ class _StatusListPageState extends State<StatusListPage> {
             _loadData(); // 刷新列表
           }
         },
+        tooltip: '设置状态',
       ),
       body: loading
           ? Center(child: CircularProgressIndicator())

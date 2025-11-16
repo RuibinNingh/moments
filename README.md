@@ -355,7 +355,81 @@ Content-Type: application/json
 
 ```
 
+### 文件管理
 
+上传接口：`POST http://<你的服务器>/upload`
+
+下载接口：`GET http://<你的服务器>/download/<filename>`
+
+文件列表接口：`GET http://<你的服务器>/files`
+
+**安全验证**:所有接口都需要在 **请求头**中加上 `X-API-KEY`：
+
+```
+X-API-KEY: <你的API_KEY>
+```
+
+#### 上传文件
+
+方法：`POST`
+
+Content-Type：`multipart/form-data`
+
+参数：
+
+- `file`：要上传的文件
+
+返回示例
+
+```
+{
+  "message": "File uploaded",
+  "filename": "example.txt",
+  "url": "http://127.0.0.1:5000/download/example.txt"
+}
+```
+
+#### 下载文件
+
+方法：`GET`
+
+URL：`/download/<filename>`
+
+#### 获取文件列表
+
+方法：`GET`
+
+URL：`/files`
+
+请求头同样需要 `X-API-KEY`
+
+返回示例
+
+```
+{
+  "files": [
+    {
+      "name": "bg_20251115_1.png",
+      "size": 384294,
+      "size_human": "375 KB",
+      "modified": "2025-11-15 10:00:23"
+    },
+    {
+      "name": "example.txt",
+      "size": 82,
+      "size_human": "82 B",
+      "modified": "2025-11-14 09:11:05"
+    }
+  ]
+}
+```
+
+| 字段         | 含义                                      |
+| ------------ | ----------------------------------------- |
+| `name`       | 文件名                                    |
+| `size`       | 文件大小（字节）                          |
+| `size_human` | 人类可读格式（KB、MB 自动转换）           |
+| `modified`   | 最后修改时间（格式：YYYY-MM-DD HH:MM:SS） |
 
 ## 运行
 

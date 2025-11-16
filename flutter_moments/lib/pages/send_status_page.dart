@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../api_client.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_html/flutter_html.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
@@ -15,45 +16,41 @@ class SendStatusPage extends StatefulWidget {
 class _SendStatusPageState extends State<SendStatusPage> {
   final _contentController = TextEditingController();
   final _nameController = TextEditingController();
-  final PageController _pageController = PageController();
-  
-  String _selectedIcon = '';
+  final _backgroundController = TextEditingController();
   DateTime _selectedDateTime = DateTime.now();
+  String _selectedIcon = '💻';
   bool _showPreview = false;
-  String? _previewHtml;
-
-  // 图标库分类
-  final Map<String, List<String>> _iconCategories = {
-    '工作学习': ['💻', '📚', '📝', '✍️', '💼', '📊', '📈', '🎓', '🔬', '⚗️'],
-    '生活日常': ['☕', '🍜', '🍱', '🍔', '🍕', '🍰', '🍎', '🥤', '🍵', '🍻'],
-    '运动健康': ['🏃', '🚴', '🏋️', '🧘', '🏊', '⚽', '🏀', '🎾', '🏸', '🧗'],
-    '娱乐休闲': ['🎮', '🎬', '🎵', '🎸', '🎨', '📷', '🎭', '🎪', '🎯', '🎲'],
-    '情感心情': ['😊', '😄', '😍', '🥰', '😎', '🤔', '😴', '😢', '😤', '😌'],
-    '旅行交通': ['🚗', '✈️', '🚄', '🚢', '🚲', '🏖️', '🏔️', '🌊', '🏕️', '🗺️'],
-    '天气季节': ['☀️', '🌙', '⭐', '☁️', '⛈️', '❄️', '🌸', '🍂', '🍁', '🌺'],
-    '其他': ['❤️', '💬', '📱', '💡', '🔔', '🎉', '🎁', '🎊', '✨', '🌟'],
-  };
 
   @override
   void initState() {
     super.initState();
-    _contentController.addListener(_updatePreview);
+    // 监听内容变化，实时更新预览
+    _contentController.addListener(() {
+      if (_showPreview && mounted) {
+        setState(() {});
+      }
+    });
   }
+
+  // 常用图标库
+  final List<String> _iconLibrary = [
+    '💻', '📚', '🎮', '🎵', '☕', '🍜', '🚗', '🏖️', '🏊', '💼',
+    '🍱', '📅', '🎉', '📖', '🏃', '🍽️', '🎬', '💬', '🤔', '😴',
+    '❤️', '🛒', '🎨', '📷', '✈️', '🏠', '🌙', '☀️', '⭐', '🎯',
+    '🎪', '🎭', '🎤', '🎸', '🎹', '🎺', '🎻', '🥁', '🎲', '🎰',
+    '🏀', '⚽', '🎾', '🏐', '🏓', '🏸', '🥊', '🏋️', '🧘', '🧗',
+    '🚴', '🏇', '🏂', '⛷️', '🏄', '🚣', '⛵', '🏊', '🤽', '🤾',
+    '🧗', '🚵', '🏌️', '🏹', '🎣', '🎪', '🎨', '🖌️', '🖍️', '✏️',
+    '📝', '📄', '📃', '📑', '📊', '📈', '📉', '📌', '📍', '📎',
+    '🔖', '📐', '📏', '✂️', '🔧', '🔨', '⚙️', '🔩', '⛏️', '🛠️',
+  ];
 
   @override
   void dispose() {
     _contentController.dispose();
     _nameController.dispose();
-    _pageController.dispose();
+    _backgroundController.dispose();
     super.dispose();
-  }
-
-  void _updatePreview() {
-    // 这里可以添加Markdown转HTML的预览逻辑
-    // 暂时使用简单的文本预览
-    setState(() {
-      _previewHtml = _contentController.text;
-    });
   }
 
   Future<void> _selectDateTime() async {
@@ -82,119 +79,75 @@ class _SendStatusPageState extends State<SendStatusPage> {
     }
   }
 
-  String _formatDateTime(DateTime dt) {
-    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}';
-  }
-
   void _showIconPicker() {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.5,
-        maxChildSize: 0.9,
-        builder: (context, scrollController) => Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+      builder: (context) => Container(
+        height: 400,
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '选择图标',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 16),
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 8,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '选择图标',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  controller: scrollController,
-                  padding: EdgeInsets.all(16),
-                  itemCount: _iconCategories.length,
-                  itemBuilder: (context, index) {
-                    final category = _iconCategories.keys.elementAt(index);
-                    final icons = _iconCategories[category]!;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8),
-                          child: Text(
-                            category,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey[700],
-                            ),
-                          ),
+                itemCount: _iconLibrary.length,
+                itemBuilder: (context, index) {
+                  final icon = _iconLibrary[index];
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedIcon = icon;
+                      });
+                      Navigator.pop(context);
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: _selectedIcon == icon
+                            ? Colors.blue.withOpacity(0.2)
+                            : Colors.grey[200],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _selectedIcon == icon
+                              ? Colors.blue
+                              : Colors.transparent,
+                          width: 2,
                         ),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: icons.map((icon) {
-                            return GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _selectedIcon = icon;
-                                });
-                                Navigator.pop(context);
-                              },
-                              child: Container(
-                                width: 50,
-                                height: 50,
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: _selectedIcon == icon
-                                        ? Colors.blue
-                                        : Colors.grey[300]!,
-                                    width: _selectedIcon == icon ? 2 : 1,
-                                  ),
-                                  borderRadius: BorderRadius.circular(8),
-                                  color: _selectedIcon == icon
-                                      ? Colors.blue.withOpacity(0.1)
-                                      : Colors.grey[50],
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    icon,
-                                    style: GoogleFonts.notoColorEmoji(fontSize: 28),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }).toList(),
+                      ),
+                      child: Center(
+                        child: Text(
+                          icon,
+                          style: GoogleFonts.notoColorEmoji(fontSize: 24),
                         ),
-                        SizedBox(height: 16),
-                      ],
-                    );
-                  },
-                ),
+                      ),
+                    ),
+                  );
+                },
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
+  String _formatDateTime(DateTime dt) {
+    return '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}';
+  }
+
   Future<void> _sendStatus() async {
     if (_contentController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('请输入内容')),
+        SnackBar(content: Text('内容不能为空')),
       );
       return;
     }
@@ -203,19 +156,16 @@ class _SendStatusPageState extends State<SendStatusPage> {
       final timeStr = _formatDateTime(_selectedDateTime);
       await widget.api.sendStatus(
         _contentController.text,
-        _nameController.text.trim().isEmpty ? '状态' : _nameController.text.trim(),
+        _nameController.text.trim(),
         _selectedIcon,
+        _backgroundController.text.trim(),
         timeStr,
       );
-      if (mounted) {
-        Navigator.pop(context, true); // 返回true表示成功发送
-      }
+      Navigator.pop(context, true); // 返回true表示成功发送
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('发送失败: $e')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('发送失败: $e')),
+      );
     }
   }
 
@@ -225,221 +175,187 @@ class _SendStatusPageState extends State<SendStatusPage> {
       appBar: AppBar(
         title: Text('设置状态'),
         actions: [
-          IconButton(
-            icon: Icon(_showPreview ? Icons.edit : Icons.preview),
-            onPressed: () {
+          PopupMenuButton<String>(
+            icon: Icon(_showPreview ? Icons.preview : Icons.edit),
+            onSelected: (value) {
               setState(() {
-                _showPreview = !_showPreview;
+                if (value == 'edit') {
+                  _showPreview = false;
+                } else if (value == 'preview') {
+                  _showPreview = true;
+                } else {
+                  _showPreview = false; // 默认编辑模式
+                }
               });
             },
-            tooltip: _showPreview ? '编辑' : '预览',
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit, size: 20),
+                    SizedBox(width: 8),
+                    Text('编辑模式'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'preview',
+                child: Row(
+                  children: [
+                    Icon(Icons.preview, size: 20),
+                    SizedBox(width: 8),
+                    Text('预览模式'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
-      body: _showPreview ? _buildPreviewView() : _buildEditView(),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: ElevatedButton(
-            onPressed: _sendStatus,
-            style: ElevatedButton.styleFrom(
-              padding: EdgeInsets.symmetric(vertical: 16),
-            ),
-            child: Text('发送'),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEditView() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      body: Column(
         children: [
-          // 图标选择
-          Text(
-            '图标',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 8),
-          GestureDetector(
-            onTap: _showIconPicker,
-            child: Container(
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey[300]!),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  if (_selectedIcon.isNotEmpty)
-                    Text(
-                      _selectedIcon,
-                      style: GoogleFonts.notoColorEmoji(fontSize: 32),
-                    )
-                  else
-                    Icon(Icons.emoji_emotions, size: 32, color: Colors.grey),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _selectedIcon.isEmpty ? '点击选择图标' : '点击更换图标',
-                      style: TextStyle(
-                        color: _selectedIcon.isEmpty ? Colors.grey : Colors.black87,
-                      ),
-                    ),
-                  ),
-                  Icon(Icons.chevron_right, color: Colors.grey),
-                ],
-              ),
-            ),
-          ),
-          SizedBox(height: 24),
-          
-          // 状态名称
-          Text(
-            '状态名称',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 8),
-          TextField(
-            controller: _nameController,
-            decoration: InputDecoration(
-              hintText: '例如：coding、study、relax',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          SizedBox(height: 24),
-          
-          // 时间选择
-          Text(
-            '时间',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 8),
-          GestureDetector(
-            onTap: _selectDateTime,
-            child: Container(
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey[300]!),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.access_time, color: Colors.grey),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      DateFormat('yyyy-MM-dd HH:mm:ss').format(_selectedDateTime),
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ),
-                  Icon(Icons.chevron_right, color: Colors.grey),
-                ],
-              ),
-            ),
-          ),
-          SizedBox(height: 24),
-          
-          // 内容编辑
-          Text(
-            '内容（Markdown）',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 8),
-          TextField(
-            controller: _contentController,
-            maxLines: 10,
-            decoration: InputDecoration(
-              hintText: '输入Markdown格式的内容...',
-              border: OutlineInputBorder(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPreviewView() {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 预览头部信息
-          Card(
-            child: Padding(
+          // 配置区域
+          Expanded(
+            flex: _showPreview ? 1 : 2,
+            child: SingleChildScrollView(
               padding: EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // 图标选择
                   Row(
                     children: [
-                      if (_selectedIcon.isNotEmpty)
-                        Text(
-                          _selectedIcon,
-                          style: GoogleFonts.notoColorEmoji(fontSize: 32),
+                      Text('图标:', style: TextStyle(fontSize: 16)),
+                      SizedBox(width: 16),
+                      GestureDetector(
+                        onTap: _showIconPicker,
+                        child: Container(
+                          padding: EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _selectedIcon,
+                            style: GoogleFonts.notoColorEmoji(fontSize: 32),
+                          ),
                         ),
-                      if (_selectedIcon.isNotEmpty) SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _nameController.text.trim().isEmpty
-                                  ? '状态'
-                                  : _nameController.text.trim(),
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              DateFormat('yyyy-MM-dd HH:mm:ss').format(_selectedDateTime),
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
+                      ),
+                      SizedBox(width: 8),
+                      TextButton(
+                        onPressed: _showIconPicker,
+                        child: Text('选择图标'),
                       ),
                     ],
                   ),
+                  SizedBox(height: 16),
+                  // 状态名称
+                  TextField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      labelText: '状态名称（可选）',
+                      hintText: '例如: coding(自定义)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  // 时间选择
+                  InkWell(
+                    onTap: _selectDateTime,
+                    child: InputDecorator(
+                      decoration: InputDecoration(
+                        labelText: '时间',
+                        border: OutlineInputBorder(),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            DateFormat('yyyy-MM-dd HH:mm:ss').format(_selectedDateTime),
+                            style: TextStyle(fontSize: 16),
+                          ),
+                          Icon(Icons.calendar_today),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  // 背景图片
+                  TextField(
+                    controller: _backgroundController,
+                    decoration: InputDecoration(
+                      labelText: '背景图片路径（可选）',
+                      hintText: '/upload/bg_xxx.png',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  // 内容编辑/预览
+                  if (!_showPreview) ...[
+                    Text('内容 (Markdown):', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    SizedBox(height: 8),
+                    TextField(
+                      controller: _contentController,
+                      maxLines: 10,
+                      decoration: InputDecoration(
+                        hintText: '输入Markdown格式的内容...',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ] else ...[
+                    Text('预览:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    SizedBox(height: 8),
+                    Container(
+                      padding: EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey[300]!),
+                      ),
+                      constraints: BoxConstraints(minHeight: 200),
+                      child: _contentController.text.isEmpty
+                          ? Center(
+                              child: Text(
+                                '输入内容后可以预览',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            )
+                          : MarkdownBody(data: _contentController.text),
+                    ),
+                  ],
                 ],
               ),
             ),
           ),
-          SizedBox(height: 16),
-          
-          // 预览内容
-          if (_contentController.text.trim().isNotEmpty)
-            Card(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: MarkdownBody(
-                  data: _contentController.text,
-                  styleSheet: MarkdownStyleSheet(
-                    p: TextStyle(fontSize: 16, height: 1.6),
-                  ),
+          // 发送按钮
+          Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: Offset(0, -2),
                 ),
-              ),
-            )
-          else
-            Card(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Text(
-                  '暂无内容',
-                  style: TextStyle(color: Colors.grey),
+              ],
+            ),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _sendStatus,
+                style: ElevatedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(vertical: 16),
                 ),
+                child: Text('发送状态'),
               ),
             ),
+          ),
         ],
       ),
     );
   }
+
 }
 

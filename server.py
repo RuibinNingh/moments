@@ -1,7 +1,8 @@
 import os, json, time
 import logging, sys
 import yaml
-from flask import Flask, request, jsonify, send_from_directory, render_template, g
+from flask import Flask, request, jsonify, send_from_directory, render_template, g, send_file
+from werkzeug.utils import secure_filename
 from markdown import markdown
 import yaml
 from functools import wraps
@@ -581,8 +582,114 @@ def search_page():
                            query=q)
 @app.route("/upload/<path:filename>")
 def serve_uploads(filename):
-    """提供上传的静态文件"""
+    """提供上传的静态文件（公开访问，不需要API Key）"""
     return send_from_directory("upload/", filename)
+
+@app.route("/upload", methods=["POST"])
+@require_api_key
+def api_upload_file():
+    """上传文件接口"""
+    if 'file' not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No file selected"}), 400
+    
+    # 确保upload目录存在
+    upload_dir = "upload"
+    if not os.path.exists(upload_dir):
+        os.makedirs(upload_dir)
+    
+    # 安全文件名
+    filename = secure_filename(file.filename)
+    filepath = os.path.join(upload_dir, filename)
+    
+    # 如果文件已存在，添加时间戳
+    if os.path.exists(filepath):
+        name, ext = os.path.splitext(filename)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{name}_{timestamp}{ext}"
+        filepath = os.path.join(upload_dir, filename)
+    
+    try:
+        file.save(filepath)
+        base_url = f"http://{HOST}:{PORT}"
+        return jsonify({
+            "message": "File uploaded",
+            "filename": filename,
+            "url": f"{base_url}/download/{filename}"
+        }), 200
+    except Exception as e:
+        logger.error(f"Upload error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/download/<path:filename>", methods=["GET"])
+@require_api_key
+def api_download_file(filename):
+    """下载文件接口"""
+    filepath = os.path.join("upload", filename)
+    if not os.path.exists(filepath):
+        return jsonify({"error": "File not found"}), 404
+    
+    try:
+        return send_file(filepath, as_attachment=True)
+    except Exception as e:
+        logger.error(f"Download error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/files", methods=["GET"])
+@require_api_key
+def api_list_files():
+    """获取文件列表接口"""
+    upload_dir = "upload"
+    if not os.path.exists(upload_dir):
+        return jsonify({"files": []}), 200
+    
+    files = []
+    for filename in os.listdir(upload_dir):
+        filepath = os.path.join(upload_dir, filename)
+        if os.path.isfile(filepath):
+            stat = os.stat(filepath)
+            size = stat.st_size
+            
+            # 格式化文件大小
+            if size < 1024:
+                size_human = f"{size} B"
+            elif size < 1024 * 1024:
+                size_human = f"{size / 1024:.1f} KB"
+            else:
+                size_human = f"{size / (1024 * 1024):.1f} MB"
+            
+            # 格式化修改时间
+            modified = datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+            
+            files.append({
+                "name": filename,
+                "size": size,
+                "size_human": size_human,
+                "modified": modified
+            })
+    
+    # 按修改时间倒序排列
+    files.sort(key=lambda x: x["modified"], reverse=True)
+    
+    return jsonify({"files": files}), 200
+
+@app.route("/files/<path:filename>", methods=["DELETE"])
+@require_api_key
+def api_delete_file(filename):
+    """删除文件接口"""
+    filepath = os.path.join("upload", filename)
+    if not os.path.exists(filepath):
+        return jsonify({"error": "File not found"}), 404
+    
+    try:
+        os.remove(filepath)
+        return jsonify({"message": "File deleted", "filename": filename}), 200
+    except Exception as e:
+        logger.error(f"Delete error: {e}")
+        return jsonify({"error": str(e)}), 500
 def list_status_or_posts(folder):
     """读取状态或动态目录，按时间倒序返回解析结果"""
     if not os.path.exists(folder):

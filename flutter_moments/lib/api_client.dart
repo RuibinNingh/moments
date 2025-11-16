@@ -1,5 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'models/post.dart';
 import 'models/status.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,6 +14,7 @@ class ApiClient {
   ApiClient();
   
   String get baseUrl => _baseUrl;
+  String get apiKey => _apiKey;
 
   Future<void> loadConfig() async {
     final prefs = await SharedPreferences.getInstance();
@@ -188,22 +192,103 @@ class ApiClient {
     }
   }
 
-  Future<void> sendStatus(String content, String name, String icon, String time, {String? background}) async {
+  Future<void> sendStatus(String content, String name, String icon, String background, String time) async {
     await loadConfig();
     final body = jsonEncode({
       'content': content,
       'name': name,
       'icon': icon,
+      'background': background,
       'time': time,
-      if (background != null && background.isNotEmpty) 'background': background,
     });
     final resp = await http.post(
       Uri.parse('$_baseUrl/api/status/new'),
       headers: {'Content-Type': 'application/json', 'X-API-KEY': _apiKey},
       body: body,
     );
-    if (resp.statusCode != 200 && resp.statusCode != 201) {
-      throw Exception('发送失败: ${resp.body}');
+    if (resp.statusCode != 201 && resp.statusCode != 200) {
+      throw Exception('发送失败: ${resp.statusCode}');
     }
+  }
+
+  // 文件管理相关方法
+  Future<List<Map<String, dynamic>>> fetchFiles() async {
+    await loadConfig();
+    final resp = await http.get(
+      Uri.parse('$_baseUrl/files'),
+      headers: {'X-API-KEY': _apiKey},
+    );
+    if (resp.statusCode == 200) {
+      final data = jsonDecode(resp.body);
+      return List<Map<String, dynamic>>.from(data['files'] ?? []);
+    } else {
+      throw Exception('获取文件列表失败: ${resp.statusCode}');
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadFile(dynamic file) async {
+    await loadConfig();
+    
+    final uri = Uri.parse('$_baseUrl/upload');
+    final request = http.MultipartRequest('POST', uri);
+    request.headers['X-API-KEY'] = _apiKey;
+    
+    // 添加文件 - 支持 File 和 XFile
+    http.MultipartFile multipartFile;
+    
+    if (kIsWeb) {
+      // Web平台：使用 XFile 的 bytes
+      final bytes = await file.readAsBytes();
+      final filename = file.name;
+      multipartFile = http.MultipartFile.fromBytes(
+        'file',
+        bytes,
+        filename: filename,
+      );
+    } else {
+      // 桌面/移动平台：使用 File
+      final fileStream = (file as File).openRead();
+      final length = await (file as File).length();
+      multipartFile = http.MultipartFile(
+        'file',
+        fileStream,
+        length,
+        filename: (file as File).path.split('/').last,
+      );
+    }
+    
+    request.files.add(multipartFile);
+    
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      final error = jsonDecode(response.body);
+      throw Exception(error['error'] ?? '上传失败: ${response.statusCode}');
+    }
+  }
+
+  Future<void> deleteFile(String filename) async {
+    await loadConfig();
+    final resp = await http.delete(
+      Uri.parse('$_baseUrl/files/$filename'),
+      headers: {'X-API-KEY': _apiKey},
+    );
+    if (resp.statusCode != 200) {
+      final error = jsonDecode(resp.body);
+      throw Exception(error['error'] ?? '删除失败: ${resp.statusCode}');
+    }
+  }
+
+  String getFileUrl(String filename) {
+    // 文件URL（公开访问，不需要API Key）
+    return '$_baseUrl/upload/$filename';
+  }
+  
+  String getFileUrlWithKey(String filename) {
+    // 为了兼容性保留，但实际不需要key
+    return getFileUrl(filename);
   }
 }

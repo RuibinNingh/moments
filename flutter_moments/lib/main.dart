@@ -37,6 +37,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   Future<bool>? _configFuture;
   bool _hasNavigatedToConfig = false;
+  bool _isNavigating = false; // 正在导航的标志
 
   Future<bool> _hasConfig() async {
     final prefs = await SharedPreferences.getInstance();
@@ -46,32 +47,45 @@ class _HomePageState extends State<HomePage> {
   void _checkConfig() {
     setState(() {
       _configFuture = _hasConfig();
-      _hasNavigatedToConfig = false; // 重置标志
+      // 只有在配置检查完成后才重置导航标志
     });
   }
 
   void _navigateToConfig() async {
-    if (_hasNavigatedToConfig || !mounted) return; // 避免重复导航
+    // 如果正在导航或已经导航过，直接返回
+    if (_isNavigating || _hasNavigatedToConfig || !mounted) return;
+    
+    _isNavigating = true;
     _hasNavigatedToConfig = true;
     
+    // 等待下一帧，确保widget树已构建完成
+    await Future.delayed(Duration(milliseconds: 100));
+    
+    if (!mounted) {
+      _isNavigating = false;
+      _hasNavigatedToConfig = false;
+      return;
+    }
+    
     final result = await Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => ConfigPage()),
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => ConfigPage(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+        transitionDuration: Duration(milliseconds: 200),
+      ),
     );
+    
+    _isNavigating = false;
+    
     // 配置保存后重新检查
     if (result == true && mounted) {
-      // 强制重新创建future，确保FutureBuilder重新执行
-      final newConfigCheck = _hasConfig();
-      setState(() {
-        _configFuture = newConfigCheck;
-        _hasNavigatedToConfig = false;
-      });
-      // 等待配置检查完成，如果成功就不需要导航了
-      final hasConfig = await newConfigCheck;
-      if (hasConfig && mounted) {
-        // 配置已经保存，FutureBuilder会自动显示列表页面
-      }
+      // 立即重新检查配置，这会触发FutureBuilder重新构建
+      _checkConfig();
+      // 注意：不重置 _hasNavigatedToConfig，因为如果配置检查失败，不应该再次导航
     } else if (mounted) {
-      // 如果用户取消了配置，也需要重置标志，允许下次再次导航
+      // 如果用户取消了配置，重置标志，允许下次再次导航
       setState(() {
         _hasNavigatedToConfig = false;
       });
@@ -96,9 +110,10 @@ class _HomePageState extends State<HomePage> {
         }
         if (snapshot.data == false) {
           // 延迟导航，确保 context 可用
-          if (!_hasNavigatedToConfig) {
+          if (!_hasNavigatedToConfig && !_isNavigating) {
+            // 使用 SchedulerBinding 确保在下一帧执行
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted && !_hasNavigatedToConfig) {
+              if (mounted && !_hasNavigatedToConfig && !_isNavigating) {
                 _navigateToConfig();
               }
             });
