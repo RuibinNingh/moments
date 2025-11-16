@@ -11,33 +11,37 @@
 ## 项目架构
 
 ```
-/
-│
-├── server.py                     # 服务端（Flask）
-│
-├── config.yaml                   # 配置文件  
-│
-├── templates/                    # 网页文件目录
-│     ├── index.html              # 动态展示页面
-│     ├── status.html             # 状态历史查看
-│     ├── post.html               # 发布动态页面
-│     ├── css/
-│     ├── js/
-│     └── img/
-│
-├── posts/                        # 动态正文（Markdown 格式）
-│     ├── 2025-01-20-1.md         # 动态文件
-│     ├── 2025-01-20-2.md         # 动态文件
-│     └── ...                     # 更多动态文件
-│
-├── status/                       # 状态记录（Markdown 格式）
-│     ├── 2025-01-20-1.md         # 每天一条或每次更新一条状态
-│     ├── 2025-01-20-2.md         # 状态记录文件
-│     └── ...                     # 更多历史状态文件
-│
-└── upload/                       # 上传图片或背景
-      ├── bg_20250120_1.png
-      └── ...
+├── flutter_moments/          # 安卓客户端
+├── posts/                    # 动态（md格式）
+│   ├── 2025-11-15-1.md
+│   ├── 2025-11-15-2.md
+│   └── 2025-11-16-1.md
+├── status/                   # 状态（md格式）
+│   ├── 2025-11-15-1.md
+│   └── 2025-11-15-2.md
+├── templates/                # 前端
+│   ├── css/                  # 样式
+│   │   └── style.css
+│   ├── script/               # 脚本
+│   │   ├── api.js
+│   │   ├── index.js
+│   │   ├── interaction.js
+│   │   ├── post.js
+│   │   ├── search.js
+│   │   ├── search_input.js
+│   │   ├── search_page.js
+│   │   ├── status.js
+│   │   └── status_view.js
+│   ├── index.html            # 主页（显示动态）
+│   ├── post.html             # 动态/状态详细显示页
+│   ├── search.html           # 搜索页面
+│   ├── status.html           # 状态显示页面
+│   └── status_view.html
+├── upload/                   # 附件上传
+│   └── avatar.png
+├── config.yaml               # 配置文件
+├── README.md 
+└── server.py                 # 后端，使用flask
 ```
 
 ## 存储
