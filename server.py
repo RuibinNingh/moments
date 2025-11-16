@@ -9,6 +9,7 @@ from flask import request, jsonify
 from datetime import datetime
 from flask_cors import CORS
 import re
+import jieba
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
 logging.basicConfig(level=logging.DEBUG,
@@ -140,6 +141,74 @@ def get_single_post(post_id):
     post = load_post(filepath)
     return jsonify(post)
 
+@app.route("/api/post/query")
+def api_post_query():
+    """查询动态（按日期或文件名）"""
+    date = request.args.get("date")
+    filename = request.args.get("filename")
+    limit = request.args.get("limit", type=int) or 20
+    offset = request.args.get("offset", type=int) or 0
+
+    # date 和 filename 至少提供一个
+    if not date and not filename:
+        return jsonify({"error": "At least one of 'date' or 'filename' must be provided"}), 400
+
+    # 如果提供了 filename，优先按文件名查询（返回单个动态）
+    if filename:
+        filepath = os.path.join("posts", filename)
+        if not os.path.isfile(filepath):
+            logger.warning("api/post/query not_found filename=%s", filename)
+            return jsonify({"error": "Post not found"}), 404
+        
+        post = load_post(filepath)
+        logger.info("api/post/query filename=%s", filename)
+        return jsonify(post)
+    
+    # 按日期查询（返回列表）
+    if date:
+        # 验证日期格式
+        try:
+            datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            return jsonify({"error": "Invalid date format, expected YYYY-MM-DD"}), 400
+        
+        # 查找该日期的所有动态文件
+        POST_DIR = "posts"
+        if not os.path.exists(POST_DIR):
+            return jsonify({"count": 0, "posts": []})
+        
+        files = [os.path.join(POST_DIR, f) for f in os.listdir(POST_DIR) 
+                 if f.endswith(".md") and f.startswith(date)]
+        
+        # 加载所有动态
+        posts = []
+        for fp in files:
+            try:
+                post = load_post(fp)
+                # 验证时间是否匹配（以防文件名格式不一致）
+                t_str = post["meta"].get("time", "")
+                if t_str.startswith(date):
+                    posts.append(post)
+            except Exception as e:
+                logger.warning("api/post/query error loading file=%s error=%s", fp, e)
+                continue
+        
+        # 按时间排序（最新在前）
+        posts.sort(key=lambda x: x["meta"].get("time", ""), reverse=True)
+        
+        # 分页
+        total_count = len(posts)
+        paginated_posts = posts[offset:offset + limit]
+        
+        res = {
+            "count": total_count,
+            "posts": paginated_posts
+        }
+        logger.info("api/post/query date=%s count=%s offset=%s limit=%s", date, total_count, offset, limit)
+        return jsonify(res)
+    
+    return jsonify({"error": "Invalid parameters"}), 400
+
 def load_status(filepath):
     """读取单条状态文件"""
     with open(filepath, "r", encoding="utf-8") as f:
@@ -211,10 +280,103 @@ def api_status_history():
     logger.info("api/status/history count=%s", res["count"])
     return jsonify(res)
 
+@app.route("/api/status/query")
+def api_status_query():
+    """查询状态（按日期或文件名）"""
+    date = request.args.get("date")
+    filename = request.args.get("filename")
+    limit = request.args.get("limit", type=int) or 20
+    offset = request.args.get("offset", type=int) or 0
+
+    # date 和 filename 至少提供一个
+    if not date and not filename:
+        return jsonify({"error": "At least one of 'date' or 'filename' must be provided"}), 400
+
+    # 如果提供了 filename，优先按文件名查询（返回单个状态）
+    if filename:
+        filepath = os.path.join("status", filename)
+        if not os.path.isfile(filepath):
+            logger.warning("api/status/query not_found filename=%s", filename)
+            return jsonify({"error": "Status not found"}), 404
+        
+        status = load_status(filepath)
+        logger.info("api/status/query filename=%s", filename)
+        return jsonify(status)
+    
+    # 按日期查询（返回列表）
+    if date:
+        # 验证日期格式
+        try:
+            datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            return jsonify({"error": "Invalid date format, expected YYYY-MM-DD"}), 400
+        
+        # 查找该日期的所有状态文件
+        STATUS_DIR = "status"
+        if not os.path.exists(STATUS_DIR):
+            return jsonify({"count": 0, "statuses": []})
+        
+        files = [os.path.join(STATUS_DIR, f) for f in os.listdir(STATUS_DIR) 
+                 if f.endswith(".md") and f.startswith(date)]
+        
+        # 加载所有状态
+        statuses = []
+        for fp in files:
+            try:
+                status = load_status(fp)
+                # 验证时间是否匹配（以防文件名格式不一致）
+                t_str = status["meta"].get("time", "")
+                if t_str.startswith(date):
+                    statuses.append(status)
+            except Exception as e:
+                logger.warning("api/status/query error loading file=%s error=%s", fp, e)
+                continue
+        
+        # 按时间排序（最新在前）
+        statuses.sort(key=lambda x: x["meta"].get("time", ""), reverse=True)
+        
+        # 分页
+        total_count = len(statuses)
+        paginated_statuses = statuses[offset:offset + limit]
+        
+        res = {
+            "count": total_count,
+            "statuses": paginated_statuses
+        }
+        logger.info("api/status/query date=%s count=%s offset=%s limit=%s", date, total_count, offset, limit)
+        return jsonify(res)
+    
+    return jsonify({"error": "Invalid parameters"}), 400
+
 def strip_html(html_text):
+    """把 HTML 内容去掉标签，只保留纯文本。"""
     return re.sub(r"<[^>]+>", "", html_text or "")
 
+def segment_terms(s):
+    """jieba 分词"""
+    s = (s or "").strip()
+    if not s:
+        return []
+    toks = []
+    if jieba:
+        try:
+            toks = list(jieba.cut_for_search(s))
+        except Exception:
+            toks = []
+    if not toks:
+        ascii_runs = re.findall(r"[A-Za-z0-9_]+", s)
+        zh_runs = re.findall(r"[\u4e00-\u9fff]+", s)
+        toks = ascii_runs + zh_runs
+    seen = set(); ordered = []
+    for t in toks:
+        tl = t.lower()
+        if tl and tl not in seen:
+            seen.add(tl)
+            ordered.append(tl)
+    return ordered
+
 def score_item(q, item_text, name="", tags=None):
+    """给一条动态或状态打分，表示它和搜索词 q 的匹配程度。"""
     tags = tags or []
     s = (q or "").strip()
     if not s:
@@ -240,8 +402,17 @@ def score_item(q, item_text, name="", tags=None):
         if name.lower().startswith(ql): sc += 90
         if not small_ascii:
             if ql in name.lower(): sc += 70
-            if ql in hay: sc += 60
+            if ql in hay: sc += 110
+        toks = segment_terms(ql)
+        for t in toks:
+            L = max(1, len(t))
+            base = 8 * L
+            if any(tt.lower() == t for tt in tags): sc += base + 40
+            if name.lower().startswith(t): sc += base + 30
+            if t in name.lower(): sc += base + 20
+            if t in hay: sc += base + 16
     return sc
+
 
 @app.route('/api/search')
 def api_search():
@@ -344,6 +515,7 @@ def api_status_new():
     data = request.json or {}
     content = data.get("content", "")
     name = data.get("name", "")
+    icon = data.get("icon", "")  # 获取图标字段（Emoji）
     background = data.get("background", "")
     time_str = data.get("time") or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -361,12 +533,15 @@ def api_status_new():
         f.write("---\n")
         f.write(f'time: "{time_str}"\n')
         f.write(f'name: "{name}"\n')
-        f.write(f'background: "{background}"\n')
+        if icon:  # 如果有图标，写入图标字段
+            f.write(f'icon: {icon}\n')
+        if background:  # 如果有背景，写入背景字段
+            f.write(f'background: "{background}"\n')
         f.write("---\n\n")
         f.write(content)
 
     status = load_status(filepath)
-    logger.info("api/status/new filename=%s size=%s name=%s", filename, len(content), name)
+    logger.info("api/status/new filename=%s size=%s name=%s icon=%s", filename, len(content), name, icon)
     return jsonify(status), 201
 
 @app.route("/css/<path:filename>")

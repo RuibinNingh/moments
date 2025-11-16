@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import '../api_client.dart';
 import 'post_detail_page.dart';
 import 'send_post_page.dart';
+import 'status_list_page.dart';
+import 'status_page.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class PostListPage extends StatefulWidget {
   final ApiClient api;
@@ -16,6 +19,7 @@ class PostListPage extends StatefulWidget {
 class _PostListPageState extends State<PostListPage> {
   List posts = [];
   Map<String, dynamic>? userInfo;
+  dynamic currentStatus; // 当前状态
   bool loading = true;
   String? _baseUrl;
 
@@ -28,15 +32,17 @@ class _PostListPageState extends State<PostListPage> {
   Future<void> _loadData() async {
     try {
       await widget.api.loadConfig();
-      // 获取用户信息和动态列表
+      // 获取用户信息、动态列表和当前状态
       final userInfoFuture = widget.api.fetchUserInfo();
       final postsFuture = widget.api.fetchPosts();
+      final statusFuture = widget.api.fetchCurrentStatus().catchError((e) => null);
       
-      final results = await Future.wait([userInfoFuture, postsFuture]);
+      final results = await Future.wait([userInfoFuture, postsFuture, statusFuture]);
       
       setState(() {
         userInfo = results[0] as Map<String, dynamic>;
         posts = results[1] as List;
+        currentStatus = results[2]; // 可能是null
         _baseUrl = widget.api.baseUrl;
         loading = false;
       });
@@ -84,6 +90,16 @@ class _PostListPageState extends State<PostListPage> {
       appBar: AppBar(
         title: Text('瞬间'),
         actions: [
+          IconButton(
+            icon: Icon(Icons.history),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => StatusListPage(widget.api)),
+              );
+            },
+            tooltip: '状态历史',
+          ),
           IconButton(
             icon: Icon(Icons.refresh),
             onPressed: _loadData,
@@ -143,7 +159,12 @@ class _PostListPageState extends State<PostListPage> {
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => PostDetailPage(post)),
+            MaterialPageRoute(
+              builder: (_) => PostDetailPage(
+                filename: post.filename,
+                api: widget.api,
+              ),
+            ),
           );
         },
         child: Padding(
@@ -170,7 +191,7 @@ class _PostListPageState extends State<PostListPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 昵称和时间
+                    // 昵称、状态图标和时间
                     Row(
                       children: [
                         Text(
@@ -180,12 +201,36 @@ class _PostListPageState extends State<PostListPage> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        // 状态图标
+                        if (currentStatus != null && 
+                            currentStatus.meta != null &&
+                            currentStatus.meta['icon'] != null &&
+                            currentStatus.meta['icon'].toString().isNotEmpty)
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => StatusPage(widget.api)),
+                              );
+                            },
+                            child: Padding(
+                              padding: EdgeInsets.only(left: 6),
+                              child: Text(
+                                currentStatus.meta['icon'].toString(),
+                                style: GoogleFonts.notoColorEmoji(
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                          ),
                         SizedBox(width: 8),
-                        Text(
-                          _formatTime(timeStr),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
+                        Expanded(
+                          child: Text(
+                            _formatTime(timeStr),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
                           ),
                         ),
                       ],

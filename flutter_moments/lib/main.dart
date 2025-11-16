@@ -51,7 +51,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _navigateToConfig() async {
-    if (_hasNavigatedToConfig) return; // 避免重复导航
+    if (_hasNavigatedToConfig || !mounted) return; // 避免重复导航
     _hasNavigatedToConfig = true;
     
     final result = await Navigator.of(context).push(
@@ -59,7 +59,22 @@ class _HomePageState extends State<HomePage> {
     );
     // 配置保存后重新检查
     if (result == true && mounted) {
-      _checkConfig(); // 重新检查配置
+      // 强制重新创建future，确保FutureBuilder重新执行
+      final newConfigCheck = _hasConfig();
+      setState(() {
+        _configFuture = newConfigCheck;
+        _hasNavigatedToConfig = false;
+      });
+      // 等待配置检查完成，如果成功就不需要导航了
+      final hasConfig = await newConfigCheck;
+      if (hasConfig && mounted) {
+        // 配置已经保存，FutureBuilder会自动显示列表页面
+      }
+    } else if (mounted) {
+      // 如果用户取消了配置，也需要重置标志，允许下次再次导航
+      setState(() {
+        _hasNavigatedToConfig = false;
+      });
     }
   }
 
@@ -83,7 +98,9 @@ class _HomePageState extends State<HomePage> {
           // 延迟导航，确保 context 可用
           if (!_hasNavigatedToConfig) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              _navigateToConfig();
+              if (mounted && !_hasNavigatedToConfig) {
+                _navigateToConfig();
+              }
             });
           }
           return Scaffold(
