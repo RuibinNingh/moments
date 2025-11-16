@@ -30,7 +30,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
+  http: ^1.1.0                # 网络请求
+  flutter_markdown: ^0.7.0    # Markdown 渲染
+  flutter_html: ^3.0.0        # HTML 渲染（可选）
+  image_picker: 1.2.1        # 图片选择（上传用，可选）
+  shared_preferences: ^2.1.1
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
