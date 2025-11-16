@@ -45,5 +45,19 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- 添加 App Transport Security 配置，允许 HTTP 连接 -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+	<!-- 添加相册访问权限说明 -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>需要访问相册以选择图片上传</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>需要访问相册以保存图片</string>
+	<!-- 添加相机权限说明（如果需要拍照功能） -->
+	<key>NSCameraUsageDescription</key>
+	<string>需要访问相机以拍摄照片上传</string>
 </dict>
 </plist>

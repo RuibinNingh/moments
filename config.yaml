@@ -1,5 +1,5 @@
 server:
-  host: 127.0.0.1   # 服务器地址
+  host: 0.0.0.0   # 服务器地址
   port: 5000        # 端口
 
 nickname: Ruibin_Ningh   # 昵称
