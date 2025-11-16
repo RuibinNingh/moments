@@ -1,0 +1,32 @@
+<!doctype html>
+<!-- 页面：search.html | 作用：搜索结果列表（后端检索） -->
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>搜索 · 瞬间</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="page page-search">
+  <header class="glass nav breathe container">
+    <div class="title">搜索</div>
+    <nav style="margin-left:auto; display:flex; gap:8px;">
+      <a href="{{ url_for('index') }}">动态</a>
+      <a href="{{ url_for('status_page') }}">状态</a>
+    </nav>
+    <div class="search">
+      <input id="searchInput" class="search-input" type="search" value="{{ query or '' }}" placeholder="搜索动态/状态、标签…" autocomplete="off" />
+    </div>
+  </header>
+
+  <main class="container">
+    <section id="searchInfo" class="card glass breathe" style="padding:12px 16px"></section>
+    <section id="searchResults" class="list"></section>
+  </main>
+
+  <script src="script/api.js" defer></script>
+  <script src="script/interaction.js" defer></script>
+  <script src="script/search_input.js" defer></script>
+  <script src="script/search_page.js" defer></script>
+</body>
+</html>

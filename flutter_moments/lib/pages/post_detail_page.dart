@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/post.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_html/flutter_html.dart';
 
 class PostDetailPage extends StatelessWidget {
   final Post post;
@@ -10,9 +10,9 @@ class PostDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(post.filename)),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        child: Markdown(data: post.html),
+        child: Html(data: post.html ?? ''),
       ),
     );
   }

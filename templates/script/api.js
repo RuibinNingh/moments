@@ -1,6 +1,13 @@
+/*
+  文件：api.js
+  作用：封装前端数据请求与通用工具（时间、排序、ID）
+  依赖：后端接口（/api/*）
+  输出：window.API 方法集合
+*/
 // 简易 API 封装（含降级 Mock），适配最新接口规范
 (function () {
   const BASE_URL = '';
+  const USE_MOCK = new URLSearchParams(location.search).has('preview');
 
   async function fetchJSON(path) {
     const url = BASE_URL + path;
@@ -64,27 +71,64 @@
   };
 
   // 时间工具
+  /**
+   * 功能：解析时间字符串为 Date
+   * 输入：YYYY-MM-DD HH:mm:ss
+   * 返回：Date
+   */
   function parseTime(str) { return new Date(str.replace(/-/g,'/')); }
+  /**
+   * 功能：格式化时间为 YYYY-MM-DD HH:mm
+   * 输入：Date
+   * 返回：字符串
+   */
   function formatTime(d) {
     const pad = n => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
+  /**
+   * 功能：按 meta.time 倒序排序
+   * 输入：列表
+   * 返回：排序后的列表
+   */
   function sortByTimeDesc(items) {
     return [...items].sort((a,b) => parseTime(b.meta?.time||'') - parseTime(a.meta?.time||''));
   }
 
+  /**
+   * 功能：从文件名提取 id（去除 .md）
+   * 输入：如 2025-11-15-1.md
+   * 返回：如 2025-11-15-1
+   */
   function getIdFromFilename(filename) {
     return String(filename||'').replace(/\.md$/,'');
   }
 
   // API 方法（新）
+  /**
+   * 功能：获取动态列表（倒序去重）
+   * 输入：无
+   * 返回：Array<Post>
+   */
   async function getPostList() {
     const data = await fetchJSON('/api/posts');
-    const list = Array.isArray(data?.posts) ? data.posts : MOCK_POSTS.posts;
+    let list = Array.isArray(data?.posts) ? data.posts : (USE_MOCK ? MOCK_POSTS.posts : []);
+    const seen = new Set();
+    list = list.filter(p => {
+      const k = getIdFromFilename(p.filename);
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
     return sortByTimeDesc(list);
   }
 
+  /**
+   * 功能：获取单条动态详情
+   * 输入：id 或 filename
+   * 返回：Post
+   */
   async function getPostDetail(idOrFilename) {
     const id = getIdFromFilename(idOrFilename);
     let data = await fetchJSON(`/api/post/${encodeURIComponent(id)}`);
@@ -95,9 +139,35 @@
     return item;
   }
 
+  /**
+   * 功能：获取当前状态
+   * 输入：无
+   * 返回：Status | null
+   */
   async function getCurrentState() {
     const data = await fetchJSON('/api/status/current');
-    return data || MOCK_STATE;
+    return data || (USE_MOCK ? MOCK_STATE : null);
+  }
+
+  /**
+   * 功能：获取历史状态列表（倒序）
+   * 输入：无
+   * 返回：Array<Status>
+   */
+  async function getStatusHistory() {
+    const data = await fetchJSON('/api/status/history');
+    const list = Array.isArray(data?.statuses) ? data.statuses : [];
+    return sortByTimeDesc(list);
+  }
+
+  /**
+   * 功能：后端搜索（正则/关键词）
+   * 输入：q 查询字符串
+   * 返回：{ count, items }
+   */
+  async function searchAll(q) {
+    const data = await fetchJSON(`/api/search?q=${encodeURIComponent(q||'')}`);
+    return data || { count: 0, items: [] };
   }
 
   // 导出到 window
@@ -105,6 +175,8 @@
     getPostList,
     getPostDetail,
     getCurrentState,
+    getStatusHistory,
+    searchAll,
     formatTime,
     parseTime,
     getIdFromFilename

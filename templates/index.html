@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- 页面：index.html | 作用：动态列表首页 | 结构：导航、搜索、列表 -->
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
@@ -9,13 +10,15 @@
 </head>
 <body class="page page-index">
 
-  <!-- 顶部导航 -->
   <header class="glass nav breathe container">
     <div class="title">{{ nickname }} 的动态</div>
     <nav style="margin-left:auto; display:flex; gap:8px;">
       <a href="/">动态</a>
       <a href="/status">状态</a>
     </nav>
+    <div class="search">
+      <input id="searchInput" class="search-input" type="search" placeholder="搜索动态/状态、标签…" autocomplete="off" />
+    </div>
   </header>
 
   <!-- 主体内容 -->
@@ -32,11 +35,10 @@
 
   </main>
 
-  <!-- 前端 API 封装 -->
-  <script src="script/api.js"></script>
-
-  <!-- 列表渲染逻辑 -->
-  <script src="script/index.js"></script>
+  <script src="script/api.js" defer></script>
+  <script src="script/interaction.js" defer></script>
+  <script src="script/search_input.js" defer></script>
+  <script src="script/index.js" defer></script>
 
   <script>
     window.avatar = "{{ avatar }}";

@@ -33,9 +33,17 @@ class _SendPostPageState extends State<SendPostPage> {
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: () async {
-                final tags = _tagsController.text.split(',');
-                await widget.api.sendPost(_contentController.text, tags, DateTime.now().toString());
-                Navigator.pop(context);
+                try {
+                  final tags = _tagsController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+                  final now = DateTime.now();
+                  final timeStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+                  await widget.api.sendPost(_contentController.text, tags, timeStr);
+                  Navigator.pop(context, true); // 返回true表示成功发送
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('发送失败: $e')),
+                  );
+                }
               },
               child: Text('发送'),
             ),

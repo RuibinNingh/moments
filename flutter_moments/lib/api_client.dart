@@ -9,6 +9,8 @@ class ApiClient {
   String _apiKey = '';
 
   ApiClient();
+  
+  String get baseUrl => _baseUrl;
 
   Future<void> loadConfig() async {
     final prefs = await SharedPreferences.getInstance();
@@ -47,6 +49,16 @@ class ApiClient {
     if (resp.statusCode == 200) {
       final e = jsonDecode(resp.body);
       return Status(filename: e['filename'], html: e['html'], meta: e['meta']);
+    } else {
+      throw Exception('请求失败');
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchUserInfo() async {
+    await loadConfig();
+    final resp = await http.get(Uri.parse('$_baseUrl/api/user/info'), headers: {'X-API-KEY': _apiKey});
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body);
     } else {
       throw Exception('请求失败');
     }

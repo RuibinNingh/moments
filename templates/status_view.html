@@ -1,15 +1,15 @@
 <!doctype html>
-<!-- 页面：status.html | 作用：状态页面（当前状态 + 历史） -->
+<!-- 页面：status_view.html | 作用：状态详情展示（名称、时间、正文） -->
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>瞬间 · 状态</title>
+  <title>瞬间 · 状态详情</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
-<body class="page page-status">
+<body class="page page-status-detail">
   <header class="glass nav breathe container">
-    <div class="title">状态</div>
+    <div class="title">状态详情</div>
     <nav style="margin-left:auto; display:flex; gap:8px;">
       <a href="{{ url_for('index') }}">动态</a>
       <a href="{{ url_for('status_page') }}">状态</a>
@@ -20,20 +20,16 @@
   </header>
 
   <main class="container">
-    <section id="stateHero" class="state-hero glass breathe">
-      <div class="bg" aria-hidden="true"></div>
-      <div class="inner">
-        <div id="stateName" class="name">加载中...</div>
-        <div id="stateTime" class="meta">--</div>
-        <div id="stateContent" class="content"></div>
-      </div>
-    </section>
-    <section id="statusHistory" class="list"></section>
+    <article class="article glass breathe">
+      <div class="name" id="statusViewName"></div>
+      <div class="time" id="statusViewTime">加载中...</div>
+      <div class="body" id="statusViewBody"></div>
+    </article>
   </main>
 
   <script src="script/api.js" defer></script>
   <script src="script/interaction.js" defer></script>
   <script src="script/search_input.js" defer></script>
-  <script src="script/status.js" defer></script>
+  <script src="script/status_view.js" defer></script>
 </body>
 </html>

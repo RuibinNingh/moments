@@ -1,3 +1,8 @@
+/*
+  文件：post.js
+  作用：渲染动态详情页面（时间、标签、正文）
+  输入：URL 参数 id / file
+*/
 document.addEventListener('DOMContentLoaded', async () => {
   const params = new URLSearchParams(location.search);
   const id = params.get('id') || params.get('file'); // 兼容旧参数
@@ -19,6 +24,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   bodyEl.innerHTML = data.html || escapeHtml(data.raw||'');
 });
 
+/**
+ * 功能：HTML 转义，避免 XSS
+ */
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g,'&amp;')

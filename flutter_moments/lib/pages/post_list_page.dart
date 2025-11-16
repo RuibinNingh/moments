@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../api_client.dart';
 import 'post_detail_page.dart';
 import 'send_post_page.dart';
+import 'package:flutter_html/flutter_html.dart';
+import 'package:intl/intl.dart';
 
 class PostListPage extends StatefulWidget {
   final ApiClient api;
@@ -13,49 +15,210 @@ class PostListPage extends StatefulWidget {
 
 class _PostListPageState extends State<PostListPage> {
   List posts = [];
+  Map<String, dynamic>? userInfo;
   bool loading = true;
+  String? _baseUrl;
 
   @override
   void initState() {
     super.initState();
-    widget.api.fetchPosts().then((value) {
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      await widget.api.loadConfig();
+      // 获取用户信息和动态列表
+      final userInfoFuture = widget.api.fetchUserInfo();
+      final postsFuture = widget.api.fetchPosts();
+      
+      final results = await Future.wait([userInfoFuture, postsFuture]);
+      
       setState(() {
-        posts = value;
+        userInfo = results[0] as Map<String, dynamic>;
+        posts = results[1] as List;
+        _baseUrl = widget.api.baseUrl;
         loading = false;
       });
-    });
+    } catch (e) {
+      setState(() {
+        loading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('加载失败: $e')),
+      );
+    }
+  }
+
+  String _formatTime(String timeStr) {
+    try {
+      final time = DateTime.parse(timeStr.replaceAll(' ', 'T'));
+      final now = DateTime.now();
+      final difference = now.difference(time);
+      
+      if (difference.inMinutes < 1) {
+        return '刚刚';
+      } else if (difference.inMinutes < 60) {
+        return '${difference.inMinutes}分钟前';
+      } else if (difference.inHours < 24) {
+        return '${difference.inHours}小时前';
+      } else if (difference.inDays < 7) {
+        return '${difference.inDays}天前';
+      } else {
+        return DateFormat('MM月dd日 HH:mm').format(time);
+      }
+    } catch (e) {
+      return timeStr;
+    }
+  }
+
+  String? _getAvatarUrl() {
+    if (userInfo == null || userInfo!['avatar'] == null || _baseUrl == null || _baseUrl!.isEmpty) return null;
+    final avatarFileName = userInfo!['avatar'] as String;
+    return '$_baseUrl/upload/$avatarFileName';
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('动态列表')),
+      appBar: AppBar(
+        title: Text('瞬间'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: _loadData,
+          ),
+        ],
+      ),
       body: loading
           ? Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              itemCount: posts.length,
-              itemBuilder: (context, index) {
-                final post = posts[index];
-                return ListTile(
-                  title: Text(post.filename),
-                  subtitle: Text(post.meta['time']),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => PostDetailPage(post)),
-                    );
-                  },
-                );
-              },
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              child: posts.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.inbox, size: 64, color: Colors.grey),
+                          SizedBox(height: 16),
+                          Text('还没有动态，发布第一条吧！', style: TextStyle(color: Colors.grey)),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      itemCount: posts.length,
+                      itemBuilder: (context, index) {
+                        final post = posts[index];
+                        final tags = post.meta['tags'] as List<dynamic>? ?? [];
+                        final isWeChat = tags.contains('微信');
+                        
+                        return _buildPostCard(post, isWeChat);
+                      },
+                    ),
             ),
       floatingActionButton: FloatingActionButton(
         child: Icon(Icons.add),
-        onPressed: () {
-          Navigator.push(
+        onPressed: () async {
+          final result = await Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => SendPostPage(widget.api)),
           );
+          if (result == true) {
+            _loadData(); // 刷新列表
+          }
         },
+      ),
+    );
+  }
+
+  Widget _buildPostCard(dynamic post, bool isWeChat) {
+    final timeStr = post.meta['time'] ?? '';
+    final avatarUrl = _getAvatarUrl();
+    final nickname = userInfo?['nickname'] ?? '用户';
+    
+    return Card(
+      margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => PostDetailPage(post)),
+          );
+        },
+        child: Padding(
+          padding: EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 头像
+              CircleAvatar(
+                radius: 24,
+                backgroundImage: avatarUrl != null
+                    ? NetworkImage(avatarUrl)
+                    : null,
+                onBackgroundImageError: (exception, stackTrace) {
+                  // 头像加载失败时的处理
+                },
+                child: avatarUrl == null
+                    ? Icon(Icons.person, size: 24)
+                    : null,
+              ),
+              SizedBox(width: 12),
+              // 内容区域
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 昵称和时间
+                    Row(
+                      children: [
+                        Text(
+                          nickname,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          _formatTime(timeStr),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                    // 标签提示
+                    if (isWeChat)
+                      Padding(
+                        padding: EdgeInsets.only(top: 4, bottom: 4),
+                        child: Row(
+                          children: [
+                            Icon(Icons.chat_bubble_outline, size: 14, color: Colors.green),
+                            SizedBox(width: 4),
+                            Text(
+                              '来自微信朋友圈',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    SizedBox(height: 8),
+                    // 内容
+                    Html(
+                      data: post.html ?? '',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- 页面：post.html | 作用：动态详情展示（时间、标签、正文） -->
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
@@ -13,6 +14,9 @@
       <a href="/">返回列表</a>
       <a href="status">状态</a>
     </nav>
+    <div class="search">
+      <input id="searchInput" class="search-input" type="search" placeholder="搜索动态/状态、标签…" autocomplete="off" />
+    </div>
   </header>
 
   <main class="container">
@@ -23,7 +27,9 @@
     </article>
   </main>
 
-  <script src="script/api.js"></script>
-  <script src="script/post.js"></script>
+  <script src="script/api.js" defer></script>
+  <script src="script/interaction.js" defer></script>
+  <script src="script/search_input.js" defer></script>
+  <script src="script/post.js" defer></script>
   </body>
  </html>

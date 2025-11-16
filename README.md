@@ -102,6 +102,23 @@ background: "/upload/bg_20250120_1.png"
 
 ## 后端相关变量/API
 
+### 获取基础信息
+
+`GET /api/user/info`
+
+示例返回
+
+```
+{
+  "nickname": "Ruibin_Ningh",
+  "avatar": "avatar.jpg",
+  "post_count": 42,
+  "status_count": 8,
+  "latest_post_time": "2025-01-20 10:00:00",
+  "latest_status_time": "2025-01-19 22:31:05"
+}
+```
+
 ### 获取动态列表
 
 `GET /api/posts`
@@ -205,6 +222,6 @@ Content-Type: application/json
 
 ## 运行
 ```
-python -m http.server 5000
+python server.py
 ```
-启动静态服务器
+启动服务器
