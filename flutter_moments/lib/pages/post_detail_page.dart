@@ -3,6 +3,7 @@ import '../models/post.dart';
 import '../api_client.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'send_post_page.dart';
+import '../utils/latex_renderer.dart';
 
 class PostDetailPage extends StatefulWidget {
   final Post? post; // 可选，如果有就直接显示
@@ -178,7 +179,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
               : _post != null
                   ? SingleChildScrollView(
                       padding: const EdgeInsets.all(16.0),
-                      child: Html(data: _post!.html ?? ''),
+                      child: LatexHtml(data: _post!.html ?? ''),
                     )
                   : Center(
                       child: Text('无内容', style: TextStyle(color: Colors.grey)),

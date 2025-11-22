@@ -11,6 +11,10 @@ from datetime import datetime, timedelta
 from flask_cors import CORS
 import re
 import jieba
+try:
+    from latex2mathml.converter import convert as latex_to_mathml
+except ImportError:
+    latex_to_mathml = None
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
 logging.basicConfig(level=logging.DEBUG,
@@ -79,8 +83,64 @@ def filter_by_time_limit(items, time_key="meta", time_field="time"):
     
     return filtered
 
-def load_post(filepath):
-    """读取单个动态文件，返回字典"""
+def is_mobile_client():
+    """检测是否为移动端客户端请求"""
+    user_agent = request.headers.get("User-Agent", "").lower()
+    # 检查 User-Agent 中是否包含移动端标识
+    mobile_keywords = ["flutter", "dart", "android", "ios", "mobile"]
+    if any(keyword in user_agent for keyword in mobile_keywords):
+        return True
+    # 也可以通过请求参数指定
+    if request.args.get("client") == "mobile":
+        return True
+    return False
+
+def render_latex_in_html(html, convert_to_mathml=True):
+    """将 HTML 中的 LaTeX 公式转换为 MathML 或保留原始格式
+    
+    Args:
+        html: HTML 内容
+        convert_to_mathml: 如果为 True，转换为 MathML；如果为 False，保留原始 LaTeX 格式
+    """
+    if not convert_to_mathml:
+        # 移动端：保留原始 LaTeX 格式，不做转换
+        return html
+    
+    if not latex_to_mathml:
+        # 如果 latex2mathml 未安装，返回原始 HTML
+        return html
+    
+    def replace_latex(match, is_block=False):
+        """替换单个 LaTeX 公式"""
+        latex_code = match.group(1)
+        try:
+            mathml = latex_to_mathml(latex_code)
+            # 如果是块级公式，用 div 包裹并居中
+            if is_block:
+                return f'<div style="text-align: center; margin: 16px 0;">{mathml}</div>'
+            return mathml
+        except Exception as e:
+            logger.warning("latex2mathml conversion error: %s, latex: %s", e, latex_code[:50])
+            # 转换失败时返回原始 LaTeX
+            return match.group(0)
+    
+    # 先处理块级公式 $$...$$
+    # 使用非贪婪匹配，避免跨多个公式匹配
+    html = re.sub(r'\$\$([^$]+?)\$\$', lambda m: replace_latex(m, is_block=True), html, flags=re.DOTALL)
+    
+    # 再处理行内公式 $...$
+    # 使用负向前瞻和后顾，确保 $ 不是 $$ 的一部分，且不匹配空内容
+    html = re.sub(r'(?<!\$)\$([^$\n]+?)\$(?!\$)', lambda m: replace_latex(m, is_block=False), html)
+    
+    return html
+
+def load_post(filepath, convert_latex_to_mathml=True):
+    """读取单个动态文件，返回字典
+    
+    Args:
+        filepath: 文件路径
+        convert_latex_to_mathml: 是否将 LaTeX 转换为 MathML（移动端设为 False）
+    """
     with open(filepath, "r", encoding="utf-8") as f:
         text = f.read()
     # 解析 Markdown + YAML 前置信息
@@ -96,6 +156,8 @@ def load_post(filepath):
         body = text
 
     html = markdown(body, extensions=["extra", "codehilite"])
+    # 处理 LaTeX 公式
+    html = render_latex_in_html(html, convert_to_mathml=convert_latex_to_mathml)
     return {
         "meta": meta,
         "html": html,
@@ -141,9 +203,13 @@ def api_posts():
 
     files = [os.path.join(POST_DIR, f) for f in os.listdir(POST_DIR) if f.endswith(".md")]
 
+    # 检测是否为移动端请求
+    is_mobile = is_mobile_client()
+    convert_latex = not is_mobile  # 移动端不转换 LaTeX
+
     posts = []
     for fp in files:
-        post = load_post(fp)
+        post = load_post(fp, convert_latex_to_mathml=convert_latex)
         # 尝试读取 meta.time，转换为 datetime 对象
         t_str = post["meta"].get("time", "1970-01-01 00:00:00")
         try:
@@ -167,7 +233,7 @@ def api_posts():
         "count": len(posts),
         "posts": posts
     }
-    logger.info("api/posts count=%s", res["count"])
+    logger.info("api/posts count=%s, mobile=%s", res["count"], is_mobile)
     return jsonify(res)
 
 @app.route("/api/post/<post_id>")
@@ -178,7 +244,11 @@ def get_single_post(post_id):
         logger.warning("api/post not_found id=%s", post_id)
         return jsonify({"error": "Post not found"}), 404
 
-    post = load_post(filepath)
+    # 检测是否为移动端请求
+    is_mobile = is_mobile_client()
+    convert_latex = not is_mobile  # 移动端不转换 LaTeX
+    
+    post = load_post(filepath, convert_latex_to_mathml=convert_latex)
     # 检查是否超过天数限制
     filtered = filter_by_time_limit([post], time_key="meta", time_field="time")
     if not filtered:
@@ -206,14 +276,18 @@ def api_post_query():
             logger.warning("api/post/query not_found filename=%s", filename)
             return jsonify({"error": "Post not found"}), 404
         
-        post = load_post(filepath)
+        # 检测是否为移动端请求
+        is_mobile = is_mobile_client()
+        convert_latex = not is_mobile  # 移动端不转换 LaTeX
+        
+        post = load_post(filepath, convert_latex_to_mathml=convert_latex)
         # 检查是否超过天数限制
         filtered = filter_by_time_limit([post], time_key="meta", time_field="time")
         if not filtered:
             logger.warning("api/post/query expired filename=%s", filename)
             return jsonify({"error": "Post not found"}), 404
         
-        logger.info("api/post/query filename=%s", filename)
+        logger.info("api/post/query filename=%s, mobile=%s", filename, is_mobile)
         return jsonify(post)
     
     # 按日期查询（返回列表）
@@ -232,11 +306,15 @@ def api_post_query():
         files = [os.path.join(POST_DIR, f) for f in os.listdir(POST_DIR) 
                  if f.endswith(".md") and f.startswith(date)]
         
+        # 检测是否为移动端请求
+        is_mobile = is_mobile_client()
+        convert_latex = not is_mobile  # 移动端不转换 LaTeX
+        
         # 加载所有动态
         posts = []
         for fp in files:
             try:
-                post = load_post(fp)
+                post = load_post(fp, convert_latex_to_mathml=convert_latex)
                 # 验证时间是否匹配（以防文件名格式不一致）
                 t_str = post["meta"].get("time", "")
                 if t_str.startswith(date):
@@ -264,8 +342,13 @@ def api_post_query():
     
     return jsonify({"error": "Invalid parameters"}), 400
 
-def load_status(filepath):
-    """读取单条状态文件"""
+def load_status(filepath, convert_latex_to_mathml=True):
+    """读取单条状态文件
+    
+    Args:
+        filepath: 文件路径
+        convert_latex_to_mathml: 是否将 LaTeX 转换为 MathML（移动端设为 False）
+    """
     with open(filepath, "r", encoding="utf-8") as f:
         text = f.read()
 
@@ -281,6 +364,8 @@ def load_status(filepath):
         body = text
 
     html = markdown(body, extensions=["extra", "codehilite"])
+    # 处理 LaTeX 公式
+    html = render_latex_in_html(html, convert_to_mathml=convert_latex_to_mathml)
     return {
         "filename": os.path.basename(filepath),
         "meta": meta,
@@ -288,8 +373,12 @@ def load_status(filepath):
         "html": html
     }
 
-def list_statuses():
-    """列出所有状态，按时间倒序"""
+def list_statuses(convert_latex_to_mathml=True):
+    """列出所有状态，按时间倒序
+    
+    Args:
+        convert_latex_to_mathml: 是否将 LaTeX 转换为 MathML（移动端设为 False）
+    """
     if not os.path.exists("status"):
         return []
 
@@ -297,7 +386,7 @@ def list_statuses():
 
     statuses = []
     for fp in files:
-        s = load_status(fp)
+        s = load_status(fp, convert_latex_to_mathml=convert_latex_to_mathml)
         # 尝试解析时间
         t_str = s["meta"].get("time", "1970-01-01 00:00:00")
         try:
@@ -317,26 +406,34 @@ def list_statuses():
 @app.route("/api/status/current")
 def api_status_current():
     """获取最新状态"""
-    statuses = list_statuses()
+    # 检测是否为移动端请求
+    is_mobile = is_mobile_client()
+    convert_latex = not is_mobile  # 移动端不转换 LaTeX
+    
+    statuses = list_statuses(convert_latex_to_mathml=convert_latex)
     # 应用天数限制过滤
     statuses = filter_by_time_limit(statuses, time_key="meta", time_field="time")
     if not statuses:
         logger.warning("api/status/current empty")
         return jsonify({"error": "No status found"}), 404
-    logger.info("api/status/current filename=%s", statuses[0].get('filename'))
+    logger.info("api/status/current filename=%s, mobile=%s", statuses[0].get('filename'), is_mobile)
     return jsonify(statuses[0])
 
 @app.route("/api/status/history")
 def api_status_history():
     """获取历史状态列表"""
-    statuses = list_statuses()
+    # 检测是否为移动端请求
+    is_mobile = is_mobile_client()
+    convert_latex = not is_mobile  # 移动端不转换 LaTeX
+    
+    statuses = list_statuses(convert_latex_to_mathml=convert_latex)
     # 应用天数限制过滤
     statuses = filter_by_time_limit(statuses, time_key="meta", time_field="time")
     res = {
         "count": len(statuses),
         "statuses": statuses
     }
-    logger.info("api/status/history count=%s", res["count"])
+    logger.info("api/status/history count=%s, mobile=%s", res["count"], is_mobile)
     return jsonify(res)
 
 @app.route("/api/status/query")
@@ -358,14 +455,18 @@ def api_status_query():
             logger.warning("api/status/query not_found filename=%s", filename)
             return jsonify({"error": "Status not found"}), 404
         
-        status = load_status(filepath)
+        # 检测是否为移动端请求
+        is_mobile = is_mobile_client()
+        convert_latex = not is_mobile  # 移动端不转换 LaTeX
+        
+        status = load_status(filepath, convert_latex_to_mathml=convert_latex)
         # 检查是否超过天数限制
         filtered = filter_by_time_limit([status], time_key="meta", time_field="time")
         if not filtered:
             logger.warning("api/status/query expired filename=%s", filename)
             return jsonify({"error": "Status not found"}), 404
         
-        logger.info("api/status/query filename=%s", filename)
+        logger.info("api/status/query filename=%s, mobile=%s", filename, is_mobile)
         return jsonify(status)
     
     # 按日期查询（返回列表）
@@ -384,11 +485,15 @@ def api_status_query():
         files = [os.path.join(STATUS_DIR, f) for f in os.listdir(STATUS_DIR) 
                  if f.endswith(".md") and f.startswith(date)]
         
+        # 检测是否为移动端请求
+        is_mobile = is_mobile_client()
+        convert_latex = not is_mobile  # 移动端不转换 LaTeX
+        
         # 加载所有状态
         statuses = []
         for fp in files:
             try:
-                status = load_status(fp)
+                status = load_status(fp, convert_latex_to_mathml=convert_latex)
                 # 验证时间是否匹配（以防文件名格式不一致）
                 t_str = status["meta"].get("time", "")
                 if t_str.startswith(date):
@@ -485,13 +590,17 @@ def score_item(q, item_text, name="", tags=None):
 @app.route('/api/search')
 def api_search():
     q = request.args.get('q', '')
+    # 检测是否为移动端请求
+    is_mobile = is_mobile_client()
+    convert_latex = not is_mobile  # 移动端不转换 LaTeX
+    
     items = []
     if os.path.exists('posts'):
         for f in os.listdir('posts'):
             if not f.endswith('.md'):
                 continue
             fp = os.path.join('posts', f)
-            p = load_post(fp)
+            p = load_post(fp, convert_latex_to_mathml=convert_latex)
             t_str = p['meta'].get('time', '1970-01-01 00:00:00')
             try:
                 dt = datetime.strptime(t_str, "%Y-%m-%d %H:%M:%S")
@@ -573,9 +682,13 @@ def api_post_new():
         f.write("---\n\n")
         f.write(content)
 
+    # 检测是否为移动端请求
+    is_mobile = is_mobile_client()
+    convert_latex = not is_mobile  # 移动端不转换 LaTeX
+    
     # 返回创建的动态
-    post = load_post(filepath)
-    logger.info("api/post/new filename=%s size=%s tags=%s", filename, len(content), len(tags))
+    post = load_post(filepath, convert_latex_to_mathml=convert_latex)
+    logger.info("api/post/new filename=%s size=%s tags=%s, mobile=%s", filename, len(content), len(tags), is_mobile)
     return jsonify(post), 201
 
 @app.route("/api/status/new", methods=["POST"])
@@ -610,7 +723,9 @@ def api_status_new():
         f.write("---\n\n")
         f.write(content)
 
-    status = load_status(filepath)
+    # 新建状态时，默认转换为 MathML（网页端显示）
+    # 移动端会在下次请求时获取保留 LaTeX 的版本
+    status = load_status(filepath, convert_latex_to_mathml=True)
     logger.info("api/status/new filename=%s size=%s name=%s icon=%s", filename, len(content), name, icon)
     return jsonify(status), 201
 
@@ -945,9 +1060,13 @@ def api_post_edit():
             f.write("---\n\n")
             f.write(body)
         
+        # 检测是否为移动端请求
+        is_mobile = is_mobile_client()
+        convert_latex = not is_mobile  # 移动端不转换 LaTeX
+        
         # 返回更新后的动态
-        post = load_post(filepath)
-        logger.info("api/post/edit updated file=%s", post_file)
+        post = load_post(filepath, convert_latex_to_mathml=convert_latex)
+        logger.info("api/post/edit updated file=%s, mobile=%s", post_file, is_mobile)
         return jsonify(post), 200
         
     except Exception as e:
@@ -1026,9 +1145,13 @@ def api_status_edit():
             f.write("---\n\n")
             f.write(body)
         
+        # 检测是否为移动端请求
+        is_mobile = is_mobile_client()
+        convert_latex = not is_mobile  # 移动端不转换 LaTeX
+        
         # 返回更新后的状态
-        status = load_status(filepath)
-        logger.info("api/status/edit updated file=%s", status_file)
+        status = load_status(filepath, convert_latex_to_mathml=convert_latex)
+        logger.info("api/status/edit updated file=%s, mobile=%s", status_file, is_mobile)
         return jsonify(status), 200
         
     except Exception as e:
@@ -1065,6 +1188,88 @@ def api_reload():
         
     except Exception as e:
         logger.error("api/reload error: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/config", methods=["GET"])
+@require_api_key
+def api_get_config():
+    """获取配置文件（返回 YAML 格式）"""
+    try:
+        with open("config.yaml", "r", encoding="utf-8") as f:
+            yaml_content = f.read()
+        
+        logger.info("api/config success")
+        # 返回 YAML 格式的文本，设置正确的 Content-Type
+        from flask import Response
+        return Response(
+            yaml_content,
+            mimetype="application/x-yaml",
+            headers={"Content-Type": "application/x-yaml; charset=utf-8"}
+        )
+        
+    except Exception as e:
+        logger.error("api/config error: %s", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/config/edit", methods=["POST"])
+@require_api_key
+def api_edit_config():
+    """编辑配置文件（接收 YAML 格式）"""
+    global config, API_KEY, VIEW_LIMIT, nickname, avatar, HOST, PORT
+    
+    try:
+        # 获取请求体中的 YAML 内容
+        yaml_content = request.get_data(as_text=True)
+        
+        if not yaml_content:
+            return jsonify({"error": "YAML content is required"}), 400
+        
+        # 验证 YAML 格式
+        try:
+            test_config = yaml.safe_load(yaml_content)
+            if not isinstance(test_config, dict):
+                return jsonify({"error": "Invalid YAML format"}), 400
+        except yaml.YAMLError as e:
+            logger.error("api/config/edit yaml_error: %s", e)
+            return jsonify({"error": f"Invalid YAML format: {str(e)}"}), 400
+        
+        # 备份原配置文件
+        import shutil
+        backup_path = "config.yaml.backup"
+        if os.path.exists("config.yaml"):
+            shutil.copy2("config.yaml", backup_path)
+        
+        # 写入新配置
+        with open("config.yaml", "w", encoding="utf-8") as f:
+            f.write(yaml_content)
+        
+        # 重新加载配置到内存
+        config = yaml.safe_load(yaml_content)
+        API_KEY = config.get("api_key", "")
+        VIEW_LIMIT = config.get("view_time_limit_days", 9999)
+        nickname = config.get("nickname", "")
+        avatar = config.get("avatar", "")
+        HOST = config["server"].get("host", "127.0.0.1")
+        PORT = config["server"].get("port", 5000)
+        
+        logger.info("api/config/edit success")
+        return jsonify({
+            "message": "Configuration updated successfully",
+            "nickname": nickname,
+            "avatar": avatar,
+            "view_time_limit_days": VIEW_LIMIT,
+            "host": HOST,
+            "port": PORT
+        }), 200
+        
+    except Exception as e:
+        logger.error("api/config/edit error: %s", e)
+        # 如果出错，尝试恢复备份
+        if os.path.exists("config.yaml.backup"):
+            try:
+                shutil.copy2("config.yaml.backup", "config.yaml")
+            except:
+                pass
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":

@@ -3,10 +3,12 @@
 这是一个能让你发动态的网页项目
 
 具体功能:
+
 - 1.你可以通过网页或者客户端(安卓或windows)进行管理在服务端的动态
 - 2.实现md语法与渲染
 - 3.支持嵌入HTML
 - 4.网页前后端一体，实时渲染
+- 5.支持LaTeX
 
 ## 项目架构
 
@@ -114,6 +116,14 @@ background: "/upload/bg_20250120_1.png"
 为了鉴别一些动态来源之类的,我计划添加标签系统
 
 一般标签例如"微信"表示这个动态是和你的微信朋友圈同步的,前端渲染时应该提示"来自微信朋友圈"
+
+## 同步动态系统
+
+我计划同步一些平台的动态,不过现在还没有啥好的方法
+
+### 微信手动同步
+
+当你要发微信朋友圈的时候通过这个软件跳转
 
 ## 后端相关变量/API
 
@@ -539,13 +549,56 @@ X-API-KEY: <你的API_KEY>
 
 作用:刷新服务端参数,例如你本地直接修改了配置文件,通过调用这个接口可以直接重新读取配置
 
-### 配置管理
+### 获取配置
 
+请求头:
 
+```
+X-API-KEY: <你的API_KEY>
+Content-Type: application/x-yaml
+```
+
+`GET /api/config`
+
+返回(yaml格式,即配置文件)
+
+### 编辑配置
+
+请求头:
+
+```
+X-API-KEY: <你的API_KEY>
+Content-Type: application/x-yaml
+```
+
+`POST /api/config/edit`
+
+实际请求格式示例（POST 发 YAML）
+
+```
+server:
+  host: 0.0.0.0   # 服务器地址
+  port: 5000        # 端口
+
+nickname: Ruibin_Ningh   # 昵称
+avatar: avatar.png        # 头像文件名
+
+api_key: your-api-key-here   # API Key
+view_time_limit_days: -1      # 可见天数
+comment: false               # 是否开启评论
+
+frontend: 
+  # 背景样式选择
+  background:
+    # 图片 ， 动态光晕 ， 动态极光
+    # "image" , "dynamic-halo" , "dynamic-aurora"
+    type: "dynamic-halo"
+```
 
 ## 运行
 
 ```
 python server.py
 ```
+
 启动服务器

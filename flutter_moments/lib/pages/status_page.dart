@@ -3,6 +3,7 @@ import '../api_client.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../utils/emoji_style.dart';
+import '../utils/latex_renderer.dart';
 import 'send_status_page.dart';
 
 class StatusPage extends StatefulWidget {
@@ -223,8 +224,8 @@ class _StatusPageState extends State<StatusPage> {
                       ],
                     ),
                     SizedBox(height: 16),
-                    // 内容
-                    Html(data: status.html ?? ''),
+                    // 内容（支持 LaTeX）
+                    LatexHtml(data: status.html ?? ''),
                     // 背景图片（如果有）
                     if (status.meta['background'] != null &&
                         status.meta['background'].toString().isNotEmpty &&

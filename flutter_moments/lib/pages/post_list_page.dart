@@ -10,6 +10,7 @@ import 'package:flutter_html/flutter_html.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../utils/emoji_style.dart';
+import '../utils/latex_renderer.dart';
 
 class PostListPage extends StatefulWidget {
   final ApiClient api;
@@ -289,8 +290,8 @@ class _PostListPageState extends State<PostListPage> {
                         ),
                       ),
                     SizedBox(height: 8),
-                    // 内容
-                    Html(
+                    // 内容（支持 LaTeX）
+                    LatexHtml(
                       data: post.html ?? '',
                     ),
                   ],

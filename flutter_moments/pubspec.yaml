@@ -33,6 +33,7 @@ dependencies:
   http: ^1.1.0                # 网络请求
   flutter_markdown: ^0.7.0    # Markdown 渲染
   flutter_html: ^3.0.0        # HTML 渲染（可选）
+  flutter_math_fork: ^0.7.2   # LaTeX 数学公式渲染
   image_picker: 1.2.1        # 图片选择（上传用，可选）
   shared_preferences: ^2.1.1
   intl: ^0.19.0               # 日期时间格式化
@@ -53,6 +54,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -95,3 +97,12 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# 应用图标配置
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "icon.png"
+  min_sdk_android: 21 # android min sdk min:16, default 21
+  adaptive_icon_background: "#0b0c10"
+  adaptive_icon_foreground: "icon.png"

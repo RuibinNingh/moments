@@ -16,6 +16,18 @@ class ApiClient {
   String get baseUrl => _baseUrl;
   String get apiKey => _apiKey;
 
+  /// 获取请求头，包含 API Key 和移动端标识
+  Map<String, String> _getHeaders({Map<String, String>? extra}) {
+    final headers = <String, String>{
+      'X-API-KEY': _apiKey,
+      'User-Agent': 'Flutter-Moments-Client/1.0 (Dart)', // 移动端标识
+    };
+    if (extra != null) {
+      headers.addAll(extra);
+    }
+    return headers;
+  }
+
   Future<void> loadConfig() async {
     final prefs = await SharedPreferences.getInstance();
     final host = prefs.getString('host') ?? '127.0.0.1';
@@ -26,7 +38,7 @@ class ApiClient {
 
   Future<List<Post>> fetchPosts() async {
     await loadConfig();
-    final resp = await http.get(Uri.parse('$_baseUrl/api/posts'), headers: {'X-API-KEY': _apiKey});
+    final resp = await http.get(Uri.parse('$_baseUrl/api/posts'), headers: _getHeaders());
     if (resp.statusCode == 200) {
       final data = jsonDecode(resp.body);
       return (data['posts'] as List).map((e) => Post(
@@ -44,7 +56,7 @@ class ApiClient {
     await loadConfig();
     final body = jsonEncode({'content': content, 'tags': tags, 'time': time});
     final resp = await http.post(Uri.parse('$_baseUrl/api/post/new'),
-        headers: {'Content-Type': 'application/json', 'X-API-KEY': _apiKey}, body: body);
+        headers: _getHeaders(extra: {'Content-Type': 'application/json'}), body: body);
     if (resp.statusCode != 201 && resp.statusCode != 200) {
       throw Exception('发送失败: ${resp.statusCode}');
     }
@@ -52,7 +64,7 @@ class ApiClient {
 
   Future<Status> fetchCurrentStatus() async {
     await loadConfig();
-    final resp = await http.get(Uri.parse('$_baseUrl/api/status/current'), headers: {'X-API-KEY': _apiKey});
+    final resp = await http.get(Uri.parse('$_baseUrl/api/status/current'), headers: _getHeaders());
     if (resp.statusCode == 200) {
       final e = jsonDecode(resp.body);
       return Status(filename: e['filename'], html: e['html'], meta: e['meta'], raw: e['raw']);
@@ -63,7 +75,7 @@ class ApiClient {
 
   Future<Map<String, dynamic>> fetchUserInfo() async {
     await loadConfig();
-    final resp = await http.get(Uri.parse('$_baseUrl/api/user/info'), headers: {'X-API-KEY': _apiKey});
+    final resp = await http.get(Uri.parse('$_baseUrl/api/user/info'), headers: _getHeaders());
     if (resp.statusCode == 200) {
       return jsonDecode(resp.body);
     } else {
@@ -73,7 +85,7 @@ class ApiClient {
 
   Future<List<Status>> fetchStatusHistory() async {
     await loadConfig();
-    final resp = await http.get(Uri.parse('$_baseUrl/api/status/history'), headers: {'X-API-KEY': _apiKey});
+    final resp = await http.get(Uri.parse('$_baseUrl/api/status/history'), headers: _getHeaders());
     if (resp.statusCode == 200) {
       final data = jsonDecode(resp.body);
       return (data['statuses'] as List).map((e) => Status(
@@ -101,7 +113,7 @@ class ApiClient {
       if (offset != null) 'offset': offset.toString(),
     });
     
-    final resp = await http.get(uri, headers: {'X-API-KEY': _apiKey});
+    final resp = await http.get(uri, headers: _getHeaders());
     
     if (resp.statusCode == 200) {
       final data = jsonDecode(resp.body);
@@ -158,7 +170,7 @@ class ApiClient {
       if (offset != null) 'offset': offset.toString(),
     });
     
-    final resp = await http.get(uri, headers: {'X-API-KEY': _apiKey});
+    final resp = await http.get(uri, headers: _getHeaders());
     
     if (resp.statusCode == 200) {
       final data = jsonDecode(resp.body);
@@ -211,7 +223,7 @@ class ApiClient {
     });
     final resp = await http.post(
       Uri.parse('$_baseUrl/api/status/new'),
-      headers: {'Content-Type': 'application/json', 'X-API-KEY': _apiKey},
+      headers: _getHeaders(extra: {'Content-Type': 'application/json'}),
       body: body,
     );
     if (resp.statusCode != 201 && resp.statusCode != 200) {
@@ -224,7 +236,7 @@ class ApiClient {
     await loadConfig();
     final resp = await http.get(
       Uri.parse('$_baseUrl/files'),
-      headers: {'X-API-KEY': _apiKey},
+      headers: _getHeaders(),
     );
     if (resp.statusCode == 200) {
       final data = jsonDecode(resp.body);
@@ -282,7 +294,7 @@ class ApiClient {
     await loadConfig();
     final resp = await http.delete(
       Uri.parse('$_baseUrl/files/$filename'),
-      headers: {'X-API-KEY': _apiKey},
+      headers: _getHeaders(),
     );
     if (resp.statusCode != 200) {
       final error = jsonDecode(resp.body);
@@ -307,7 +319,7 @@ class ApiClient {
     final url = getFileUrl(filename);
     final resp = await http.get(
       Uri.parse(url),
-      headers: {'X-API-KEY': _apiKey},
+      headers: _getHeaders(),
     );
     
     if (resp.statusCode == 200) {
@@ -327,7 +339,7 @@ class ApiClient {
     final body = jsonEncode({'type': type, 'file': file});
     final resp = await http.post(
       Uri.parse('$_baseUrl/api/remove'),
-      headers: {'Content-Type': 'application/json', 'X-API-KEY': _apiKey},
+      headers: _getHeaders(extra: {'Content-Type': 'application/json'}),
       body: body,
     );
     if (resp.statusCode != 200) {
@@ -357,7 +369,7 @@ class ApiClient {
 
     final resp = await http.post(
       Uri.parse('$_baseUrl/api/post/edit'),
-      headers: {'Content-Type': 'application/json', 'X-API-KEY': _apiKey},
+      headers: _getHeaders(extra: {'Content-Type': 'application/json'}),
       body: jsonEncode(body),
     );
     if (resp.statusCode == 200) {
@@ -400,7 +412,7 @@ class ApiClient {
 
     final resp = await http.put(
       Uri.parse('$_baseUrl/api/status/edit'),
-      headers: {'Content-Type': 'application/json', 'X-API-KEY': _apiKey},
+      headers: _getHeaders(extra: {'Content-Type': 'application/json'}),
       body: jsonEncode(body),
     );
     if (resp.statusCode == 200) {
@@ -422,13 +434,51 @@ class ApiClient {
     await loadConfig();
     final resp = await http.get(
       Uri.parse('$_baseUrl/api/reload'),
-      headers: {'X-API-KEY': _apiKey},
+      headers: _getHeaders(),
     );
     if (resp.statusCode == 200) {
       return jsonDecode(resp.body);
     } else {
       final error = jsonDecode(resp.body);
       throw Exception(error['error'] ?? '刷新配置失败: ${resp.statusCode}');
+    }
+  }
+
+  /// 获取服务器配置文件（YAML 格式）
+  Future<String> getServerConfig() async {
+    await loadConfig();
+    final resp = await http.get(
+      Uri.parse('$_baseUrl/api/config'),
+      headers: {
+        'X-API-KEY': _apiKey,
+        'Content-Type': 'application/x-yaml',
+      },
+    );
+    if (resp.statusCode == 200) {
+      // 使用 utf8.decode 显式解码，避免中文乱码
+      return utf8.decode(resp.bodyBytes);
+    } else {
+      final error = jsonDecode(resp.body);
+      throw Exception(error['error'] ?? '获取配置失败: ${resp.statusCode}');
+    }
+  }
+
+  /// 编辑服务器配置文件（YAML 格式）
+  Future<Map<String, dynamic>> editServerConfig(String yamlContent) async {
+    await loadConfig();
+    final resp = await http.post(
+      Uri.parse('$_baseUrl/api/config/edit'),
+      headers: {
+        'X-API-KEY': _apiKey,
+        'Content-Type': 'application/x-yaml',
+      },
+      body: yamlContent,
+    );
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body);
+    } else {
+      final error = jsonDecode(resp.body);
+      throw Exception(error['error'] ?? '编辑配置失败: ${resp.statusCode}');
     }
   }
 }
