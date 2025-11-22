@@ -170,6 +170,18 @@
     return data || { count: 0, items: [] };
   }
 
+  async function getPostsByDate(dateStr) {
+    const data = await fetchJSON(`/api/post/query?date=${encodeURIComponent(dateStr||'')}`);
+    const list = Array.isArray(data?.posts) ? data.posts : [];
+    return sortByTimeDesc(list);
+  }
+
+  async function getStatusesByDate(dateStr) {
+    const data = await fetchJSON(`/api/status/query?date=${encodeURIComponent(dateStr||'')}`);
+    const list = Array.isArray(data?.statuses) ? data.statuses : [];
+    return sortByTimeDesc(list);
+  }
+
   // 导出到 window
   window.API = {
     getPostList,
@@ -177,6 +189,8 @@
     getCurrentState,
     getStatusHistory,
     searchAll,
+    getPostsByDate,
+    getStatusesByDate,
     formatTime,
     parseTime,
     getIdFromFilename

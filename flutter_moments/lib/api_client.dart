@@ -291,4 +291,23 @@ class ApiClient {
     // 为了兼容性保留，但实际不需要key
     return getFileUrl(filename);
   }
+
+  /// 下载文件到本地
+  /// 返回下载后的文件路径
+  Future<String> downloadFile(String filename, String savePath) async {
+    await loadConfig();
+    final url = getFileUrl(filename);
+    final resp = await http.get(
+      Uri.parse(url),
+      headers: {'X-API-KEY': _apiKey},
+    );
+    
+    if (resp.statusCode == 200) {
+      final file = File(savePath);
+      await file.writeAsBytes(resp.bodyBytes);
+      return savePath;
+    } else {
+      throw Exception('下载失败: ${resp.statusCode}');
+    }
+  }
 }

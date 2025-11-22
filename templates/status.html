@@ -5,7 +5,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>瞬间 · 状态</title>
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body class="page page-status">
   <header class="glass nav breathe container">
@@ -20,20 +20,41 @@
   </header>
 
   <main class="container">
-    <section id="stateHero" class="state-hero glass breathe">
-      <div class="bg" aria-hidden="true"></div>
-      <div class="inner">
-        <div id="stateName" class="name">加载中...</div>
-        <div id="stateTime" class="meta">--</div>
-        <div id="stateContent" class="content"></div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <div></div>
+      <button id="toggleView" class="btn" style="display:flex; align-items:center; gap:8px;">
+        <span id="viewIcon">📅</span>
+        <span id="viewText">日历视图</span>
+      </button>
+    </div>
+    <section id="statusList" class="list"></section>
+    <section id="calendarView" style="display:none;">
+      <div class="calendar card">
+        <div class="calendar-head">
+          <button id="prevMonth" class="btn icon" aria-label="上一月">‹</button>
+          <div id="monthLabel" class="label"></div>
+          <button id="nextMonth" class="btn icon" aria-label="下一月">›</button>
+        </div>
+        <div class="calendar-week">
+          <div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div>
+        </div>
+        <div id="calendarGrid" class="calendar-grid"></div>
       </div>
+      <section id="dayPanel" class="card glass breathe" style="margin-top:16px;">
+        <div class="meta"><span id="dayLabel"></span></div>
+        <div id="dayList" class="list"></div>
+        <section id="dayEmpty" class="card glass" style="display:none; padding:12px 16px;">当天无内容</section>
+      </section>
     </section>
-    <section id="statusHistory" class="list"></section>
   </main>
 
-  <script src="script/api.js" defer></script>
-  <script src="script/interaction.js" defer></script>
-  <script src="script/search_input.js" defer></script>
-  <script src="script/status.js" defer></script>
+  <script>
+    window.avatar = "{{ avatar }}";
+    window.nickname = "{{ nickname }}";
+  </script>
+  <script src="/script/api.js" defer></script>
+  <script src="/script/interaction.js" defer></script>
+  <script src="/script/search_input.js" defer></script>
+  <script src="/script/status.js" defer></script>
 </body>
 </html>

@@ -9,6 +9,7 @@ import 'file_manager_page.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../utils/emoji_style.dart';
 
 class PostListPage extends StatefulWidget {
   final ApiClient api;
@@ -243,7 +244,7 @@ class _PostListPageState extends State<PostListPage> {
                               padding: EdgeInsets.only(left: 6),
                               child: Text(
                                 currentStatus.meta['icon'].toString(),
-                                style: GoogleFonts.notoColorEmoji(
+                                style: getEmojiTextStyle(
                                   fontSize: 16,
                                 ),
                               ),

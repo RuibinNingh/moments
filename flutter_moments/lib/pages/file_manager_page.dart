@@ -2,7 +2,13 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_file/open_file.dart';
 import '../api_client.dart';
+
+// Web平台下载支持（条件导入）
+import 'web_download_stub.dart'
+    if (dart.library.html) 'web_download.dart' as web_download;
 
 class FileManagerPage extends StatefulWidget {
   final ApiClient api;
@@ -166,6 +172,145 @@ class _FileManagerPageState extends State<FileManagerPage> {
     );
   }
 
+  Future<void> _downloadFile(String filename) async {
+    if (kIsWeb) {
+      // Web平台：触发浏览器下载
+      try {
+        final url = widget.api.getFileUrl(filename);
+        web_download.downloadFileOnWeb(url, filename);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('下载已开始')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('下载失败: $e')),
+        );
+      }
+      return;
+    }
+
+    try {
+      // 显示下载进度对话框
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('正在下载 $filename...'),
+            ],
+          ),
+        ),
+      );
+
+      // 获取下载目录
+      final directory = await getDownloadsDirectory() ?? await getApplicationDocumentsDirectory();
+      final savePath = '${directory.path}/$filename';
+
+      // 下载文件
+      await widget.api.downloadFile(filename, savePath);
+
+      // 关闭进度对话框
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('文件已下载到: $savePath'),
+          duration: Duration(seconds: 3),
+          action: SnackBarAction(
+            label: '打开',
+            onPressed: () => _openFile(savePath),
+          ),
+        ),
+      );
+    } catch (e) {
+      // 关闭进度对话框
+      if (mounted) {
+        Navigator.pop(context);
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('下载失败: $e')),
+      );
+    }
+  }
+
+  Future<void> _openFile(String filePath) async {
+    if (kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Web平台不支持此功能')),
+      );
+      return;
+    }
+
+    try {
+      final result = await OpenFile.open(filePath);
+      if (result.type != ResultType.done) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('打开文件失败: ${result.message}')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('打开文件失败: $e')),
+      );
+    }
+  }
+
+  Future<void> _downloadAndOpenFile(String filename) async {
+    if (kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Web平台请使用浏览器下载功能')),
+      );
+      return;
+    }
+
+    try {
+      // 显示下载进度对话框
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('正在下载 $filename...'),
+            ],
+          ),
+        ),
+      );
+
+      // 获取临时目录
+      final directory = await getTemporaryDirectory();
+      final savePath = '${directory.path}/$filename';
+
+      // 下载文件
+      await widget.api.downloadFile(filename, savePath);
+
+      // 关闭进度对话框
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
+      // 打开文件
+      await _openFile(savePath);
+    } catch (e) {
+      // 关闭进度对话框
+      if (mounted) {
+        Navigator.pop(context);
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('下载或打开失败: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -249,10 +394,47 @@ class _FileManagerPageState extends State<FileManagerPage> {
                                   : Icon(Icons.insert_drive_file, size: 40),
                               title: Text(filename),
                               subtitle: Text('$size • $modified'),
-                              trailing: IconButton(
-                                icon: Icon(Icons.delete, color: Colors.red),
-                                onPressed: () => _deleteFile(filename),
-                                tooltip: '删除',
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  PopupMenuButton<String>(
+                                    icon: Icon(Icons.more_vert),
+                                    onSelected: (value) {
+                                      if (value == 'download') {
+                                        _downloadFile(filename);
+                                      } else if (value == 'open') {
+                                        _downloadAndOpenFile(filename);
+                                      }
+                                    },
+                                    itemBuilder: (context) => [
+                                      PopupMenuItem(
+                                        value: 'download',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.download, size: 20),
+                                            SizedBox(width: 8),
+                                            Text('下载'),
+                                          ],
+                                        ),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'open',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.open_in_new, size: 20),
+                                            SizedBox(width: 8),
+                                            Text('以其他应用打开'),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  IconButton(
+                                    icon: Icon(Icons.delete, color: Colors.red),
+                                    onPressed: () => _deleteFile(filename),
+                                    tooltip: '删除',
+                                  ),
+                                ],
                               ),
                               onTap: isImage ? () => _showImagePreview(filename) : null,
                             );

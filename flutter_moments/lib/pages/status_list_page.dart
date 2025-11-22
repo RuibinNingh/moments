@@ -6,6 +6,7 @@ import 'send_status_page.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../utils/emoji_style.dart';
 
 class StatusListPage extends StatefulWidget {
   final ApiClient api;
@@ -340,7 +341,7 @@ class _StatusListPageState extends State<StatusListPage> {
       if (icon.toString().isEmpty) return SizedBox.shrink();
       return Text(
         icon.toString(),
-        style: GoogleFonts.notoColorEmoji(fontSize: 16),
+        style: getEmojiTextStyle(fontSize: 16),
       );
     }
     
@@ -352,7 +353,7 @@ class _StatusListPageState extends State<StatusListPage> {
         if (statuses[0].meta['icon'] != null)
           Text(
             statuses[0].meta['icon'].toString(),
-            style: GoogleFonts.notoColorEmoji(fontSize: 16),
+            style: getEmojiTextStyle(fontSize: 16),
           ),
         // 重叠的图标（稍微偏移）
         if (statuses.length > 1 && statuses[1].meta['icon'] != null)
@@ -367,7 +368,7 @@ class _StatusListPageState extends State<StatusListPage> {
               ),
               child: Text(
                 statuses[1].meta['icon'].toString(),
-                style: GoogleFonts.notoColorEmoji(fontSize: 12),
+                style: getEmojiTextStyle(fontSize: 12),
               ),
             ),
           ),
@@ -454,7 +455,7 @@ class _StatusListPageState extends State<StatusListPage> {
                         leading: status.meta['icon'] != null
                             ? Text(
                                 status.meta['icon'].toString(),
-                                style: GoogleFonts.notoColorEmoji(fontSize: 24),
+                                style: getEmojiTextStyle(fontSize: 24),
                               )
                             : null,
                         title: Text(status.meta['name'] ?? ''),
@@ -519,7 +520,7 @@ class _StatusListPageState extends State<StatusListPage> {
                   if (icon.isNotEmpty)
                     Text(
                       icon,
-                      style: GoogleFonts.notoColorEmoji(
+                      style: getEmojiTextStyle(
                         fontSize: 24,
                       ),
                     ),

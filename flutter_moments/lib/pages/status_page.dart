@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../api_client.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../utils/emoji_style.dart';
 
 class StatusPage extends StatefulWidget {
   final ApiClient api;
@@ -99,7 +100,7 @@ class _StatusPageState extends State<StatusPage> {
                         if (status.meta['icon'] != null && status.meta['icon'].toString().isNotEmpty)
                           Text(
                             status.meta['icon'].toString(),
-                            style: GoogleFonts.notoColorEmoji(
+                            style: getEmojiTextStyle(
                               fontSize: 32,
                             ),
                           ),

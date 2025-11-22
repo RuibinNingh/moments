@@ -4,6 +4,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import '../utils/emoji_style.dart';
 
 class SendStatusPage extends StatefulWidget {
   final ApiClient api;
@@ -126,7 +127,7 @@ class _SendStatusPageState extends State<SendStatusPage> {
                       child: Center(
                         child: Text(
                           icon,
-                          style: GoogleFonts.notoColorEmoji(fontSize: 24),
+                          style: getEmojiTextStyle(fontSize: 24),
                         ),
                       ),
                     ),
@@ -238,7 +239,7 @@ class _SendStatusPageState extends State<SendStatusPage> {
                           ),
                           child: Text(
                             _selectedIcon,
-                            style: GoogleFonts.notoColorEmoji(fontSize: 32),
+                            style: getEmojiTextStyle(fontSize: 32),
                           ),
                         ),
                       ),
