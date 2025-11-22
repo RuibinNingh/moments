@@ -33,6 +33,7 @@ class ApiClient {
         filename: e['filename'],
         html: e['html'],
         meta: e['meta'],
+        raw: e['raw'],
       )).toList();
     } else {
       throw Exception('请求失败');
@@ -52,7 +53,7 @@ class ApiClient {
     final resp = await http.get(Uri.parse('$_baseUrl/api/status/current'), headers: {'X-API-KEY': _apiKey});
     if (resp.statusCode == 200) {
       final e = jsonDecode(resp.body);
-      return Status(filename: e['filename'], html: e['html'], meta: e['meta']);
+      return Status(filename: e['filename'], html: e['html'], meta: e['meta'], raw: e['raw']);
     } else {
       throw Exception('请求失败');
     }
@@ -77,6 +78,7 @@ class ApiClient {
         filename: e['filename'],
         html: e['html'],
         meta: e['meta'],
+        raw: e['raw'],
       )).toList();
     } else {
       throw Exception('请求失败');
@@ -108,6 +110,7 @@ class ApiClient {
           filename: data['filename'],
           html: data['html'],
           meta: data['meta'],
+          raw: data['raw'],
         );
       }
       
@@ -119,6 +122,7 @@ class ApiClient {
           filename: post['filename'],
           html: post['html'],
           meta: post['meta'],
+          raw: post['raw'],
         );
       }
       
@@ -163,6 +167,7 @@ class ApiClient {
           filename: data['filename'],
           html: data['html'],
           meta: data['meta'],
+          raw: data['raw'],
         );
       }
       
@@ -173,6 +178,7 @@ class ApiClient {
           filename: status['filename'],
           html: status['html'],
           meta: status['meta'],
+          raw: status['raw'],
         );
       }
       
@@ -308,6 +314,119 @@ class ApiClient {
       return savePath;
     } else {
       throw Exception('下载失败: ${resp.statusCode}');
+    }
+  }
+
+  /// 删除动态或状态
+  /// type: 'posts' 或 'status'
+  /// file: 文件名（不需要 .md 后缀）
+  Future<void> removeItem(String type, String file) async {
+    await loadConfig();
+    final body = jsonEncode({'type': type, 'file': file});
+    final resp = await http.post(
+      Uri.parse('$_baseUrl/api/remove'),
+      headers: {'Content-Type': 'application/json', 'X-API-KEY': _apiKey},
+      body: body,
+    );
+    if (resp.statusCode != 200) {
+      final error = jsonDecode(resp.body);
+      throw Exception(error['error'] ?? '删除失败: ${resp.statusCode}');
+    }
+  }
+
+  /// 编辑动态
+  /// postFile: 文件名（必填）
+  /// content: 内容（可选）
+  /// tags: 标签列表（可选）
+  /// time: 时间（可选）
+  Future<Post> editPost({
+    required String postFile,
+    String? content,
+    List<String>? tags,
+    String? time,
+  }) async {
+    await loadConfig();
+    final body = <String, dynamic>{
+      'post_file': postFile,
+    };
+    if (content != null) body['content'] = content;
+    if (tags != null) body['tags'] = tags;
+    if (time != null) body['time'] = time;
+
+    final resp = await http.post(
+      Uri.parse('$_baseUrl/api/post/edit'),
+      headers: {'Content-Type': 'application/json', 'X-API-KEY': _apiKey},
+      body: jsonEncode(body),
+    );
+    if (resp.statusCode == 200) {
+      final data = jsonDecode(resp.body);
+      return Post(
+        filename: data['filename'],
+        html: data['html'],
+        meta: data['meta'],
+      );
+    } else {
+      final error = jsonDecode(resp.body);
+      throw Exception(error['error'] ?? '编辑失败: ${resp.statusCode}');
+    }
+  }
+
+  /// 编辑状态
+  /// statusFile: 文件名（必填）
+  /// content: 内容（可选）
+  /// name: 名称（可选）
+  /// icon: 图标（可选）
+  /// background: 背景图路径（可选）
+  /// time: 时间（可选）
+  Future<Status> editStatus({
+    required String statusFile,
+    String? content,
+    String? name,
+    String? icon,
+    String? background,
+    String? time,
+  }) async {
+    await loadConfig();
+    final body = <String, dynamic>{
+      'status_file': statusFile,
+    };
+    if (content != null) body['content'] = content;
+    if (name != null) body['name'] = name;
+    if (icon != null) body['icon'] = icon;
+    if (background != null) body['background'] = background;
+    if (time != null) body['time'] = time;
+
+    final resp = await http.put(
+      Uri.parse('$_baseUrl/api/status/edit'),
+      headers: {'Content-Type': 'application/json', 'X-API-KEY': _apiKey},
+      body: jsonEncode(body),
+    );
+    if (resp.statusCode == 200) {
+      final data = jsonDecode(resp.body);
+      return Status(
+        filename: data['filename'],
+        html: data['html'],
+        meta: data['meta'],
+        raw: data['raw'],
+      );
+    } else {
+      final error = jsonDecode(resp.body);
+      throw Exception(error['error'] ?? '编辑失败: ${resp.statusCode}');
+    }
+  }
+
+  /// 刷新服务器配置
+  Future<Map<String, dynamic>> reloadConfig() async {
+    await loadConfig();
+    final resp = await http.get(
+      Uri.parse('$_baseUrl/api/reload'),
+      headers: {'X-API-KEY': _apiKey},
+    );
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body);
+    } else {
+      final error = jsonDecode(resp.body);
+      throw Exception(error['error'] ?? '刷新配置失败: ${resp.statusCode}');
     }
   }
 }

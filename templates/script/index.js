@@ -167,7 +167,7 @@ function renderStatusCard(status) {
     const id = window.API.getIdFromFilename(status.filename||'');
     location.href = `status/view?id=${encodeURIComponent(id)}`;
   });
-  
+
   return card;
 }
 

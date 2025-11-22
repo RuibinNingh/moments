@@ -3,6 +3,7 @@ import '../api_client.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../utils/emoji_style.dart';
+import 'send_status_page.dart';
 
 class StatusPage extends StatefulWidget {
   final ApiClient api;
@@ -66,10 +67,100 @@ class _StatusPageState extends State<StatusPage> {
     }
   }
 
+  Future<void> _editStatus() async {
+    if (status == null) return;
+    
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SendStatusPage(widget.api, status: status),
+      ),
+    );
+    
+    if (result == true && mounted) {
+      // 编辑成功，重新加载
+      await _loadData();
+      // 显示提示信息
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('请刷新获取最新历史'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteStatus() async {
+    if (status == null) return;
+    
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('确认删除'),
+        content: Text('确定要删除这条状态吗？此操作不可撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text('删除'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed == true && mounted) {
+      try {
+        // 移除 .md 后缀
+        String filename = status.filename;
+        if (filename.endsWith('.md')) {
+          filename = filename.substring(0, filename.length - 3);
+        }
+        
+        await widget.api.removeItem('status', filename);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('删除成功，请刷新获取最新历史'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+          Navigator.pop(context); // 返回
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('删除失败: $e')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('当前状态')),
+      appBar: AppBar(
+        title: Text(widget.filename != null ? '状态详情' : '当前状态'),
+        actions: status != null
+            ? [
+                IconButton(
+                  icon: Icon(Icons.edit),
+                  onPressed: _editStatus,
+                  tooltip: '编辑',
+                ),
+                IconButton(
+                  icon: Icon(Icons.delete),
+                  onPressed: _deleteStatus,
+                  tooltip: '删除',
+                ),
+              ]
+            : null,
+      ),
       body: loading
           ? Center(child: CircularProgressIndicator())
           : _error != null

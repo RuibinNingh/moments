@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import '../api_client.dart';
+import '../models/post.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
 class SendPostPage extends StatefulWidget {
   final ApiClient api;
-  SendPostPage(this.api);
+  final Post? post; // 可选，如果提供则进入编辑模式
+  SendPostPage(this.api, {this.post});
 
   @override
   _SendPostPageState createState() => _SendPostPageState();
@@ -15,9 +17,37 @@ class _SendPostPageState extends State<SendPostPage> {
   final _tagsController = TextEditingController();
   bool _showPreview = false;
 
+  String _extractBodyFromRaw(String? raw) {
+    if (raw == null) return '';
+    // 如果包含 YAML front matter，提取 body 部分
+    if (raw.startsWith('---')) {
+      final parts = raw.split('---');
+      if (parts.length >= 3) {
+        return parts.sublist(2).join('---').trim();
+      }
+    }
+    return raw.trim();
+  }
+
   @override
   void initState() {
     super.initState();
+    // 如果是编辑模式，填充初始值
+    if (widget.post != null) {
+      // 从 raw 字段提取原始内容
+      final content = _extractBodyFromRaw(widget.post!.raw);
+      if (content.isNotEmpty) {
+        _contentController.text = content;
+      }
+      // 从 meta 中提取标签
+      final meta = widget.post!.meta;
+      if (meta['tags'] != null) {
+        final tags = meta['tags'];
+        if (tags is List) {
+          _tagsController.text = tags.join(', ');
+        }
+      }
+    }
     // 监听内容变化，实时更新预览
     _contentController.addListener(() {
       if (_showPreview && mounted) {
@@ -37,7 +67,7 @@ class _SendPostPageState extends State<SendPostPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('发送动态'),
+        title: Text(widget.post != null ? '编辑动态' : '发送动态'),
         actions: [
           PopupMenuButton<String>(
             icon: Icon(_showPreview ? Icons.preview : Icons.edit),
@@ -150,20 +180,35 @@ class _SendPostPageState extends State<SendPostPage> {
                 onPressed: () async {
                   try {
                     final tags = _tagsController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-                    final now = DateTime.now();
-                    final timeStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
-                    await widget.api.sendPost(_contentController.text, tags, timeStr);
-                    Navigator.pop(context, true); // 返回true表示成功发送
+                    
+                    if (widget.post != null) {
+                      // 编辑模式
+                      final now = DateTime.now();
+                      final timeStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+                      await widget.api.editPost(
+                        postFile: widget.post!.filename,
+                        content: _contentController.text,
+                        tags: tags,
+                        time: timeStr,
+                      );
+                      Navigator.pop(context, true); // 返回true表示成功编辑
+                    } else {
+                      // 新建模式
+                      final now = DateTime.now();
+                      final timeStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+                      await widget.api.sendPost(_contentController.text, tags, timeStr);
+                      Navigator.pop(context, true); // 返回true表示成功发送
+                    }
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('发送失败: $e')),
+                      SnackBar(content: Text(widget.post != null ? '编辑失败: $e' : '发送失败: $e')),
                     );
                   }
                 },
                 style: ElevatedButton.styleFrom(
                   padding: EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: Text('发送'),
+                child: Text(widget.post != null ? '保存' : '发送'),
               ),
             ),
           ),

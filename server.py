@@ -7,7 +7,7 @@ from markdown import markdown
 import yaml
 from functools import wraps
 from flask import request, jsonify
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask_cors import CORS
 import re
 import jieba
@@ -42,6 +42,42 @@ def require_api_key(f):
         return f(*args, **kwargs)
     return decorated
 
+def filter_by_time_limit(items, time_key="meta", time_field="time"):
+    """
+    根据配置的天数限制过滤数据
+    items: 数据列表，每个元素应该有 meta.time 或类似的字段
+    time_key: 时间字段所在的键（如 "meta"）
+    time_field: 时间字段名（如 "time"）
+    返回: 过滤后的列表
+    """
+    if VIEW_LIMIT < 0:
+        # -1 表示无限制
+        return items
+    
+    now = datetime.now()
+    limit_date = now - timedelta(days=VIEW_LIMIT)
+    filtered = []
+    
+    for item in items:
+        # 支持不同的数据结构
+        if time_key:
+            time_obj = item.get(time_key, {})
+            if isinstance(time_obj, dict):
+                t_str = time_obj.get(time_field, "1970-01-01 00:00:00")
+            else:
+                t_str = str(time_obj)
+        else:
+            t_str = item.get(time_field, "1970-01-01 00:00:00")
+        
+        try:
+            item_time = datetime.strptime(t_str, "%Y-%m-%d %H:%M:%S")
+            if item_time >= limit_date:
+                filtered.append(item)
+        except:
+            # 如果时间解析失败，默认保留（向后兼容）
+            filtered.append(item)
+    
+    return filtered
 
 def load_post(filepath):
     """读取单个动态文件，返回字典"""
@@ -124,6 +160,9 @@ def api_posts():
     for p in posts:
         p["meta"].pop("_datetime", None)
 
+    # 应用天数限制过滤
+    posts = filter_by_time_limit(posts, time_key="meta", time_field="time")
+
     res = {
         "count": len(posts),
         "posts": posts
@@ -140,6 +179,12 @@ def get_single_post(post_id):
         return jsonify({"error": "Post not found"}), 404
 
     post = load_post(filepath)
+    # 检查是否超过天数限制
+    filtered = filter_by_time_limit([post], time_key="meta", time_field="time")
+    if not filtered:
+        logger.warning("api/post expired id=%s", post_id)
+        return jsonify({"error": "Post not found"}), 404
+    
     return jsonify(post)
 
 @app.route("/api/post/query")
@@ -162,6 +207,12 @@ def api_post_query():
             return jsonify({"error": "Post not found"}), 404
         
         post = load_post(filepath)
+        # 检查是否超过天数限制
+        filtered = filter_by_time_limit([post], time_key="meta", time_field="time")
+        if not filtered:
+            logger.warning("api/post/query expired filename=%s", filename)
+            return jsonify({"error": "Post not found"}), 404
+        
         logger.info("api/post/query filename=%s", filename)
         return jsonify(post)
     
@@ -196,6 +247,9 @@ def api_post_query():
         
         # 按时间排序（最新在前）
         posts.sort(key=lambda x: x["meta"].get("time", ""), reverse=True)
+        
+        # 应用天数限制过滤
+        posts = filter_by_time_limit(posts, time_key="meta", time_field="time")
         
         # 分页
         total_count = len(posts)
@@ -264,6 +318,8 @@ def list_statuses():
 def api_status_current():
     """获取最新状态"""
     statuses = list_statuses()
+    # 应用天数限制过滤
+    statuses = filter_by_time_limit(statuses, time_key="meta", time_field="time")
     if not statuses:
         logger.warning("api/status/current empty")
         return jsonify({"error": "No status found"}), 404
@@ -274,6 +330,8 @@ def api_status_current():
 def api_status_history():
     """获取历史状态列表"""
     statuses = list_statuses()
+    # 应用天数限制过滤
+    statuses = filter_by_time_limit(statuses, time_key="meta", time_field="time")
     res = {
         "count": len(statuses),
         "statuses": statuses
@@ -301,6 +359,12 @@ def api_status_query():
             return jsonify({"error": "Status not found"}), 404
         
         status = load_status(filepath)
+        # 检查是否超过天数限制
+        filtered = filter_by_time_limit([status], time_key="meta", time_field="time")
+        if not filtered:
+            logger.warning("api/status/query expired filename=%s", filename)
+            return jsonify({"error": "Status not found"}), 404
+        
         logger.info("api/status/query filename=%s", filename)
         return jsonify(status)
     
@@ -335,6 +399,9 @@ def api_status_query():
         
         # 按时间排序（最新在前）
         statuses.sort(key=lambda x: x["meta"].get("time", ""), reverse=True)
+        
+        # 应用天数限制过滤
+        statuses = filter_by_time_limit(statuses, time_key="meta", time_field="time")
         
         # 分页
         total_count = len(statuses)
@@ -469,6 +536,8 @@ def api_search():
 
     before = len(items)
     items = [x for x in items if x.get('_score',0) >= threshold]
+    # 应用天数限制过滤
+    items = filter_by_time_limit(items, time_key="meta", time_field="time")
     items.sort(key=lambda x: (x['_score'], x['_dt']), reverse=True)
     for x in items:
         x.pop('_score', None)
@@ -731,13 +800,15 @@ def list_status_or_posts(folder):
 def api_user_info():
     """获取用户基础信息（头像、昵称、动态数量等）"""
 
-    # 读取 posts 数量与最新时间
+    # 读取 posts 数量与最新时间（考虑天数限制）
     posts = list_status_or_posts("posts")
+    posts = filter_by_time_limit(posts, time_key="meta", time_field="time")
     post_count = len(posts)
     latest_post_time = posts[0]["meta"].get("time") if post_count > 0 else None
 
-    # 读取 status 数量与最新时间
+    # 读取 status 数量与最新时间（考虑天数限制）
     statuses = list_status_or_posts("status")
+    statuses = filter_by_time_limit(statuses, time_key="meta", time_field="time")
     status_count = len(statuses)
     latest_status_time = statuses[0]["meta"].get("time") if status_count > 0 else None
 
@@ -746,6 +817,7 @@ def api_user_info():
         "avatar": avatar,
         "post_count": post_count,
         "status_count": status_count,
+        "view_time_limit_days": VIEW_LIMIT,
         "latest_post_time": latest_post_time,
         "latest_status_time": latest_status_time
     }
@@ -771,6 +843,229 @@ def api_frontend_config():
     
     logger.info("api/frontend/config background=%s", background_type)
     return jsonify(result)
+
+@app.route("/api/remove", methods=["POST"])
+@require_api_key
+def api_remove():
+    """删除动态或状态"""
+    data = request.json or {}
+    file_type = data.get("type", "").lower()
+    filename = data.get("file", "")
+    
+    if not file_type:
+        return jsonify({"error": "Parameter 'type' is required"}), 400
+    
+    if not filename:
+        return jsonify({"error": "Parameter 'file' is required"}), 400
+    
+    # 验证type参数
+    if file_type not in ["posts", "status"]:
+        return jsonify({"error": "Parameter 'type' must be 'posts' or 'status'"}), 400
+    
+    # 确保文件名以.md结尾
+    if not filename.endswith(".md"):
+        filename = f"{filename}.md"
+    
+    # 构建文件路径
+    folder = "posts" if file_type == "posts" else "status"
+    filepath = os.path.join(folder, filename)
+    
+    # 检查文件是否存在
+    if not os.path.isfile(filepath):
+        logger.warning("api/remove not_found type=%s file=%s", file_type, filename)
+        return jsonify({"error": "File not found"}), 404
+    
+    try:
+        os.remove(filepath)
+        logger.info("api/remove deleted type=%s file=%s", file_type, filename)
+        return jsonify({"message": "File deleted", "type": file_type, "file": filename}), 200
+    except Exception as e:
+        logger.error("api/remove error type=%s file=%s error=%s", file_type, filename, e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/post/edit", methods=["POST"])
+@require_api_key
+def api_post_edit():
+    """编辑动态"""
+    data = request.json or {}
+    post_file = data.get("post_file", "")
+    content = data.get("content")
+    tags = data.get("tags")
+    time_str = data.get("time")
+    
+    if not post_file:
+        return jsonify({"error": "Parameter 'post_file' is required"}), 400
+    
+    # 确保文件名以.md结尾
+    if not post_file.endswith(".md"):
+        post_file = f"{post_file}.md"
+    
+    filepath = os.path.join("posts", post_file)
+    
+    # 检查文件是否存在
+    if not os.path.isfile(filepath):
+        logger.warning("api/post/edit not_found file=%s", post_file)
+        return jsonify({"error": "Post not found"}), 404
+    
+    # 读取现有文件
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            text = f.read()
+        
+        # 解析现有内容
+        if text.startswith("---"):
+            try:
+                _, fm, body = text.split("---", 2)
+                meta = yaml.safe_load(fm) or {}
+            except:
+                meta = {}
+                body = text
+        else:
+            meta = {}
+            body = text
+        
+        # 更新字段（如果提供了新值）
+        if content is not None:
+            body = content
+        if tags is not None:
+            meta["tags"] = tags
+        if time_str is not None:
+            meta["time"] = time_str
+        
+        # 确保time字段存在
+        if "time" not in meta:
+            meta["time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # 写入文件
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write("---\n")
+            f.write(f'time: "{meta["time"]}"\n')
+            if "tags" in meta:
+                f.write(f'tags: {meta["tags"]}\n')
+            f.write("---\n\n")
+            f.write(body)
+        
+        # 返回更新后的动态
+        post = load_post(filepath)
+        logger.info("api/post/edit updated file=%s", post_file)
+        return jsonify(post), 200
+        
+    except Exception as e:
+        logger.error("api/post/edit error file=%s error=%s", post_file, e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/status/edit", methods=["PUT"])
+@require_api_key
+def api_status_edit():
+    """编辑状态"""
+    data = request.json or {}
+    status_file = data.get("status_file", "")
+    content = data.get("content")
+    name = data.get("name")
+    icon = data.get("icon")
+    background = data.get("background")
+    time_str = data.get("time")
+    
+    if not status_file:
+        return jsonify({"error": "Parameter 'status_file' is required"}), 400
+    
+    # 确保文件名以.md结尾
+    if not status_file.endswith(".md"):
+        status_file = f"{status_file}.md"
+    
+    filepath = os.path.join("status", status_file)
+    
+    # 检查文件是否存在
+    if not os.path.isfile(filepath):
+        logger.warning("api/status/edit not_found file=%s", status_file)
+        return jsonify({"error": "Status not found"}), 404
+    
+    # 读取现有文件
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            text = f.read()
+        
+        # 解析现有内容
+        if text.startswith("---"):
+            try:
+                _, fm, body = text.split("---", 2)
+                meta = yaml.safe_load(fm) or {}
+            except:
+                meta = {}
+                body = text
+        else:
+            meta = {}
+            body = text
+        
+        # 更新字段（如果提供了新值）
+        if content is not None:
+            body = content
+        if name is not None:
+            meta["name"] = name
+        if icon is not None:
+            meta["icon"] = icon
+        if background is not None:
+            meta["background"] = background
+        if time_str is not None:
+            meta["time"] = time_str
+        
+        # 确保time字段存在
+        if "time" not in meta:
+            meta["time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # 写入文件
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write("---\n")
+            f.write(f'time: "{meta["time"]}"\n')
+            if "name" in meta:
+                f.write(f'name: "{meta["name"]}"\n')
+            if "icon" in meta:
+                f.write(f'icon: {meta["icon"]}\n')
+            if "background" in meta:
+                f.write(f'background: "{meta["background"]}"\n')
+            f.write("---\n\n")
+            f.write(body)
+        
+        # 返回更新后的状态
+        status = load_status(filepath)
+        logger.info("api/status/edit updated file=%s", status_file)
+        return jsonify(status), 200
+        
+    except Exception as e:
+        logger.error("api/status/edit error file=%s error=%s", status_file, e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/reload", methods=["GET"])
+@require_api_key
+def api_reload():
+    """刷新配置，重新读取config.yaml"""
+    global config, API_KEY, VIEW_LIMIT, nickname, avatar, HOST, PORT
+    
+    try:
+        with open("config.yaml", "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f)
+        
+        # 更新全局变量
+        API_KEY = config.get("api_key", "")
+        VIEW_LIMIT = config.get("view_time_limit_days", 9999)
+        nickname = config.get("nickname", "")
+        avatar = config.get("avatar", "")
+        HOST = config["server"].get("host", "127.0.0.1")
+        PORT = config["server"].get("port", 5000)
+        
+        logger.info("api/reload success")
+        return jsonify({
+            "message": "Configuration reloaded",
+            "nickname": nickname,
+            "avatar": avatar,
+            "view_time_limit_days": VIEW_LIMIT,
+            "host": HOST,
+            "port": PORT
+        }), 200
+        
+    except Exception as e:
+        logger.error("api/reload error: %s", e)
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host=HOST, port=PORT, debug=1)

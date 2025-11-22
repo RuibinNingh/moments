@@ -3,7 +3,7 @@
 这是一个能让你发动态的网页项目
 
 具体功能:
-- 1.你可以通过网页或者客户端(安卓)进行管理在服务端的动态
+- 1.你可以通过网页或者客户端(安卓或windows)进行管理在服务端的动态
 - 2.实现md语法与渲染
 - 3.支持嵌入HTML
 - 4.网页前后端一体，实时渲染
@@ -16,6 +16,8 @@
 ├── server.py                     # 服务端（Flask）
 │
 ├── config.yaml                   # 配置文件  
+│
+├── flutter_moments/              # 客户端文件夹(后台app端开发)
 │
 ├── templates/                    # 网页文件目录
 │     ├── index.html              # 动态展示页面
@@ -53,7 +55,7 @@ nickname: Ruibin_Ningh   # 昵称
 avatar: avatar.png        # 头像文件名
 
 api_key: your-api-key-here   # API Key
-view_time_limit_days: 7      # 可见天数
+view_time_limit_days: -1      # 可见天数,-1为无限制
 comment: false               # 是否开启评论
 
 frontend: 
@@ -101,6 +103,12 @@ background: "/upload/bg_20250120_1.png"
 
 ```
 
+## 可见天数限制系统
+
+你可以在配置文件设置可见天数,超过可见天数的动态或者状态将无法被查询,单个查询会返回404
+
+如果你不想这么做可以将可见天数设置为-1
+
 ## 标签系统
 
 为了鉴别一些动态来源之类的,我计划添加标签系统
@@ -121,6 +129,7 @@ background: "/upload/bg_20250120_1.png"
   "avatar": "avatar.jpg",
   "post_count": 42,
   "status_count": 8,
+  "view_time_limit_days": -1,
   "latest_post_time": "2025-01-20 10:00:00",
   "latest_status_time": "2025-01-19 22:31:05"
 }
@@ -216,6 +225,8 @@ background: "/upload/bg_20250120_1.png"
 
 `GET /api/status/history`
 
+超过期限的内容不会显示(可配置)
+
 返回示例
 
 ```
@@ -252,6 +263,8 @@ background: "/upload/bg_20250120_1.png"
 ### 查询动态
 
 `GET /api/post/query`
+
+超过时间限制天数的不可查询
 
 | 参数       | 类型     | 必填 | 描述                                         |
 | ---------- | -------- | ---- | -------------------------------------------- |
@@ -383,7 +396,7 @@ Content-Type: application/json
 
 文件列表接口：`GET http://<你的服务器>/files`
 
-**安全验证**:所有接口都需要在 **请求头**中加上 `X-API-KEY`：
+**安全验证**:上传和获取列表需要在 **请求头**中加上 `X-API-KEY`：
 
 ```
 X-API-KEY: <你的API_KEY>
@@ -450,6 +463,85 @@ URL：`/files`
 | `size`       | 文件大小（字节）                          |
 | `size_human` | 人类可读格式（KB、MB 自动转换）           |
 | `modified`   | 最后修改时间（格式：YYYY-MM-DD HH:MM:SS） |
+
+### 删除动态/状态
+
+请求头
+
+```
+X-API-KEY: <你的API_KEY>
+Content-Type: application/json
+```
+
+`POST /api/remove`
+
+参数：
+
+- `type`:`posts`(动态)或者`status`(状态)
+
+- `file`:要删除的文件
+
+### 编辑动态
+
+请求头:
+
+```
+X-API-KEY: <你的API_KEY>
+Content-Type: application/json
+```
+
+`POST /api/post/edit`
+
+请求格式
+
+```
+{
+    "post_file": "2025-11-15-1.md",      // 必填，要编辑的动态文件名
+    "content": "修改后的动态内容",       // 可选，修改内容
+    "tags": ["测试","API","编辑"],       // 可选，修改标签
+    "time": "2025-11-22 12:00:00"       // 可选，修改发布时间
+}
+```
+
+### 编辑状态
+
+`PUT /api/status/edit`
+
+请求头:
+
+```
+X-API-KEY: your-api-key
+Content-Type: application/json
+```
+
+格式:
+
+```
+{
+    "status_file": "2025-01-15-1.md",        // 必填，要编辑的状态文件名
+    "content": "更新后的状态内容",        // 可选
+    "name": "coding(自定义)",            // 可选，自定义名称
+    "icon": "💻",                        // 可选，图标
+    "background": "/upload/bg_20251115_3.png", // 可选，背景图
+    "time": "2025-11-22 12:30:00"        // 可选，发布时间
+}
+```
+
+### 刷新配置
+
+**安全验证**:需要在 **请求头**中加上 `X-API-KEY`：
+
+```
+X-API-KEY: <你的API_KEY>
+```
+
+`GET api/reload`
+
+作用:刷新服务端参数,例如你本地直接修改了配置文件,通过调用这个接口可以直接重新读取配置
+
+### 配置管理
+
+
 
 ## 运行
 

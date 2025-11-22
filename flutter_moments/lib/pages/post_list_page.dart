@@ -95,8 +95,8 @@ class _PostListPageState extends State<PostListPage> {
         actions: [
           IconButton(
             icon: Icon(Icons.history),
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => StatusListPage(widget.api)),
               );
@@ -183,8 +183,8 @@ class _PostListPageState extends State<PostListPage> {
     return Card(
       margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: InkWell(
-        onTap: () {
-          Navigator.push(
+        onTap: () async {
+          final result = await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => PostDetailPage(
@@ -193,6 +193,10 @@ class _PostListPageState extends State<PostListPage> {
               ),
             ),
           );
+          // 如果返回 true，表示已删除或编辑，刷新列表
+          if (result == true) {
+            _loadData();
+          }
         },
         child: Padding(
           padding: EdgeInsets.all(12),
@@ -234,11 +238,15 @@ class _PostListPageState extends State<PostListPage> {
                             currentStatus.meta['icon'] != null &&
                             currentStatus.meta['icon'].toString().isNotEmpty)
                           GestureDetector(
-                            onTap: () {
-                              Navigator.push(
+                            onTap: () async {
+                              final result = await Navigator.push(
                                 context,
                                 MaterialPageRoute(builder: (_) => StatusPage(widget.api)),
                               );
+                              // 如果返回 true，表示已删除或编辑，刷新列表（更新当前状态）
+                              if (result == true) {
+                                _loadData();
+                              }
                             },
                             child: Padding(
                               padding: EdgeInsets.only(left: 6),

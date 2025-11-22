@@ -95,13 +95,11 @@ class _StatusListPageState extends State<StatusListPage> {
       floatingActionButton: FloatingActionButton(
         child: Icon(Icons.add),
         onPressed: () async {
-          final result = await Navigator.push(
+          await Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => SendStatusPage(widget.api)),
           );
-          if (result == true) {
-            _loadData(); // 刷新列表
-          }
+          _loadData(); // 刷新列表
         },
         tooltip: '设置状态',
       ),
@@ -464,10 +462,10 @@ class _StatusListPageState extends State<StatusListPage> {
                             DateTime.parse((status.meta['time'] ?? '').replaceAll(' ', 'T')),
                           ),
                         ),
-                        onTap: () {
+                        onTap: () async {
                           Navigator.pop(context);
                           // 跳转到状态详情页面，使用 filename 查询特定状态
-                          Navigator.push(
+                          await Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => StatusPage(
@@ -476,6 +474,7 @@ class _StatusListPageState extends State<StatusListPage> {
                               ),
                             ),
                           );
+                          _loadData();
                         },
                       ),
                     );
@@ -498,8 +497,8 @@ class _StatusListPageState extends State<StatusListPage> {
     return Card(
       margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: InkWell(
-        onTap: () {
-          Navigator.push(
+        onTap: () async {
+          await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => StatusPage(
@@ -508,6 +507,7 @@ class _StatusListPageState extends State<StatusListPage> {
               ),
             ),
           );
+          _loadData();
         },
         child: Padding(
           padding: EdgeInsets.all(12),

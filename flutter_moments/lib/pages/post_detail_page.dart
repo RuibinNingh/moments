@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/post.dart';
 import '../api_client.dart';
 import 'package:flutter_html/flutter_html.dart';
+import 'send_post_page.dart';
 
 class PostDetailPage extends StatefulWidget {
   final Post? post; // 可选，如果有就直接显示
@@ -62,11 +63,99 @@ class _PostDetailPageState extends State<PostDetailPage> {
     }
   }
 
+  Future<void> _editPost() async {
+    if (_post == null || widget.api == null) return;
+    
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SendPostPage(widget.api!, post: _post),
+      ),
+    );
+    
+    if (result == true && mounted) {
+      // 编辑成功，重新加载
+      await _loadPost();
+      // 显示提示信息
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('请刷新获取最新历史'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _deletePost() async {
+    if (_post == null || widget.api == null) return;
+    
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('确认删除'),
+        content: Text('确定要删除这条动态吗？此操作不可撤销。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text('删除'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed == true && mounted) {
+      try {
+        // 移除 .md 后缀
+        String filename = _post!.filename;
+        if (filename.endsWith('.md')) {
+          filename = filename.substring(0, filename.length - 3);
+        }
+        
+        await widget.api!.removeItem('posts', filename);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('删除成功，请刷新获取最新历史'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+          Navigator.pop(context); // 返回
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('删除失败: $e')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(_post?.filename ?? widget.filename ?? '动态详情'),
+        actions: _post != null && widget.api != null
+            ? [
+                IconButton(
+                  icon: Icon(Icons.edit),
+                  onPressed: _editPost,
+                  tooltip: '编辑',
+                ),
+                IconButton(
+                  icon: Icon(Icons.delete),
+                  onPressed: _deletePost,
+                  tooltip: '删除',
+                ),
+              ]
+            : null,
       ),
       body: _loading
           ? Center(child: CircularProgressIndicator())

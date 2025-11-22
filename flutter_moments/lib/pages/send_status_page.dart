@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../api_client.dart';
+import '../models/status.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,7 +9,8 @@ import '../utils/emoji_style.dart';
 
 class SendStatusPage extends StatefulWidget {
   final ApiClient api;
-  SendStatusPage(this.api);
+  final Status? status; // 可选，如果提供则进入编辑模式
+  SendStatusPage(this.api, {this.status});
 
   @override
   _SendStatusPageState createState() => _SendStatusPageState();
@@ -22,9 +24,47 @@ class _SendStatusPageState extends State<SendStatusPage> {
   String _selectedIcon = '💻';
   bool _showPreview = false;
 
+  String _extractBodyFromRaw(String? raw) {
+    if (raw == null) return '';
+    // 如果包含 YAML front matter，提取 body 部分
+    if (raw.startsWith('---')) {
+      final parts = raw.split('---');
+      if (parts.length >= 3) {
+        return parts.sublist(2).join('---').trim();
+      }
+    }
+    return raw.trim();
+  }
+
   @override
   void initState() {
     super.initState();
+    // 如果是编辑模式，填充初始值
+    if (widget.status != null) {
+      final meta = widget.status!.meta;
+      // 从 raw 字段提取原始内容
+      final content = _extractBodyFromRaw(widget.status!.raw);
+      if (content.isNotEmpty) {
+        _contentController.text = content;
+      }
+      if (meta['name'] != null) {
+        _nameController.text = meta['name'].toString();
+      }
+      if (meta['icon'] != null) {
+        _selectedIcon = meta['icon'].toString();
+      }
+      if (meta['background'] != null) {
+        _backgroundController.text = meta['background'].toString();
+      }
+      if (meta['time'] != null) {
+        try {
+          final timeStr = meta['time'].toString();
+          _selectedDateTime = DateFormat('yyyy-MM-dd HH:mm:ss').parse(timeStr);
+        } catch (e) {
+          // 解析失败则使用当前时间
+        }
+      }
+    }
     // 监听内容变化，实时更新预览
     _contentController.addListener(() {
       if (_showPreview && mounted) {
@@ -155,17 +195,32 @@ class _SendStatusPageState extends State<SendStatusPage> {
 
     try {
       final timeStr = _formatDateTime(_selectedDateTime);
-      await widget.api.sendStatus(
-        _contentController.text,
-        _nameController.text.trim(),
-        _selectedIcon,
-        _backgroundController.text.trim(),
-        timeStr,
-      );
-      Navigator.pop(context, true); // 返回true表示成功发送
+      
+      if (widget.status != null) {
+        // 编辑模式
+        await widget.api.editStatus(
+          statusFile: widget.status!.filename,
+          content: _contentController.text,
+          name: _nameController.text.trim().isEmpty ? null : _nameController.text.trim(),
+          icon: _selectedIcon,
+          background: _backgroundController.text.trim().isEmpty ? null : _backgroundController.text.trim(),
+          time: timeStr,
+        );
+        Navigator.pop(context, true); // 返回true表示成功编辑
+      } else {
+        // 新建模式
+        await widget.api.sendStatus(
+          _contentController.text,
+          _nameController.text.trim(),
+          _selectedIcon,
+          _backgroundController.text.trim(),
+          timeStr,
+        );
+        Navigator.pop(context, true); // 返回true表示成功发送
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('发送失败: $e')),
+        SnackBar(content: Text(widget.status != null ? '编辑失败: $e' : '发送失败: $e')),
       );
     }
   }
@@ -174,7 +229,7 @@ class _SendStatusPageState extends State<SendStatusPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('设置状态'),
+        title: Text(widget.status != null ? '编辑状态' : '设置状态'),
         actions: [
           PopupMenuButton<String>(
             icon: Icon(_showPreview ? Icons.preview : Icons.edit),
@@ -349,7 +404,7 @@ class _SendStatusPageState extends State<SendStatusPage> {
                 style: ElevatedButton.styleFrom(
                   padding: EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: Text('发送状态'),
+                child: Text(widget.status != null ? '保存' : '发送状态'),
               ),
             ),
           ),
