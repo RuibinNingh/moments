@@ -182,6 +182,11 @@
     return sortByTimeDesc(list);
   }
 
+  async function getFrontendConfig() {
+    const data = await fetchJSON('/api/frontend/config');
+    return data || { background: 'image' };
+  }
+
   // 导出到 window
   window.API = {
     getPostList,
@@ -191,6 +196,7 @@
     searchAll,
     getPostsByDate,
     getStatusesByDate,
+    getFrontendConfig,
     formatTime,
     parseTime,
     getIdFromFilename
