@@ -8,3 +8,10 @@ avatar: avatar.png        # 头像文件名
 api_key: your-api-key-here   # API Key
 view_time_limit_days: 7      # 可见天数
 comment: false               # 是否开启评论
+
+frontend: 
+  # 背景样式选择
+  background:
+    # 图片 ， 动态光晕 ， 动态极光
+    # "image" , "dynamic-halo" , "dynamic-aurora"
+    type: "image"

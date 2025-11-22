@@ -752,6 +752,26 @@ def api_user_info():
 
     return jsonify(info)
 
+@app.route("/api/frontend/config")
+def api_frontend_config():
+    """获取前端个性化配置"""
+    # 从配置文件中读取 frontend.background.type
+    # 如果没有配置，默认使用 "image"
+    background_type = "image"
+    try:
+        frontend_config = config.get("frontend", {})
+        background_config = frontend_config.get("background", {})
+        background_type = background_config.get("type", "image")
+    except Exception as e:
+        logger.warning("api/frontend/config error reading config: %s", e)
+    
+    result = {
+        "background": background_type
+    }
+    
+    logger.info("api/frontend/config background=%s", background_type)
+    return jsonify(result)
+
 if __name__ == "__main__":
     app.run(host=HOST, port=PORT, debug=1)
 

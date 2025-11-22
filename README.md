@@ -56,6 +56,12 @@ api_key: your-api-key-here   # API Key
 view_time_limit_days: 7      # 可见天数
 comment: false               # 是否开启评论
 
+frontend: 
+  # 背景样式选择
+  background:
+    # 图片 ， 动态光晕 ， 动态极光
+    # "image" , "dynamic-halo" , "dynamic-aurora"
+    type: "image"
 ```
 
 ### 动态
@@ -119,6 +125,20 @@ background: "/upload/bg_20250120_1.png"
   "latest_status_time": "2025-01-19 22:31:05"
 }
 ```
+
+### 前端个性化配置
+
+`GET /api/frontend/config`
+
+示例返回
+
+```
+{
+  "background": "image" //背景模式,image为用户自定义图片(自动获取background.png),dynamic-halo是动态光晕,dynamic-aurora是动态极光
+}
+```
+
+
 
 ### 获取动态列表
 
