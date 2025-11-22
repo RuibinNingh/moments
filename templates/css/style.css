@@ -56,6 +56,7 @@ body::before {
   z-index: -1;
 }
 body.interacting::before { animation: floatLight 20s ease-in-out infinite alternate; }
+body.bg-halo::before, body.bg-halo::after { display: none; }
 
 /* 光晕缓慢移动动画 */
 @keyframes floatLight {

@@ -14,4 +14,4 @@ frontend:
   background:
     # 图片 ， 动态光晕 ， 动态极光
     # "image" , "dynamic-halo" , "dynamic-aurora"
-    type: "image"
+    type: "dynamic-halo"
