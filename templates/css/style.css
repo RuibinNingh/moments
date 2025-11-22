@@ -83,13 +83,8 @@ body::after {
 /* 容器全屏 */
 .container { width: 100%; max-width: none; margin: 0 auto; padding: 24px 20px; min-height: 100%; }
 
-/* 呼吸动画 */
-@keyframes breathe {
-  0% { transform: translateZ(0) scale(1); box-shadow: 0 10px 28px rgba(0,0,0,0.34); }
-  50% { transform: translateZ(0) scale(1.008); box-shadow: 0 12px 36px rgba(0,0,0,0.40); }
-  100% { transform: translateZ(0) scale(1); box-shadow: 0 10px 28px rgba(0,0,0,0.34); }
-}
-.breathe:hover, .breathe:focus-within { animation: breathe 4.8s ease-in-out infinite; }
+/* 移除悬停呼吸动画（保留类以兼容现有结构） */
+.breathe:hover, .breathe:focus-within { animation: none; }
 
 /* 顶部导航 */
 .nav { display: flex; align-items: center; gap: 12px; padding: 14px 18px; }
