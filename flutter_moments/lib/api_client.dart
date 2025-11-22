@@ -45,7 +45,9 @@ class ApiClient {
     final body = jsonEncode({'content': content, 'tags': tags, 'time': time});
     final resp = await http.post(Uri.parse('$_baseUrl/api/post/new'),
         headers: {'Content-Type': 'application/json', 'X-API-KEY': _apiKey}, body: body);
-    if (resp.statusCode != 200) throw Exception('发送失败');
+    if (resp.statusCode != 201 && resp.statusCode != 200) {
+      throw Exception('发送失败: ${resp.statusCode}');
+    }
   }
 
   Future<Status> fetchCurrentStatus() async {
